@@ -1,11 +1,78 @@
 <script setup>
-import Versions from './components/Versions.vue'
+import { ref } from "vue";
 
-const ipcHandle = () => window.electron.ipcRenderer.send('ping')
+import Principal from "./principal.vue"; 
+import CrearCuenta from "./CrearCuenta.vue"; 
+
+
+const vista = ref("login"); 
+
+const email = ref("");
+const password = ref("");
+const showPassword = ref(false);
+const loading = ref(false);
+
+const errorMsg = ref("");
+const emailEl = ref(null);
+const passEl = ref(null);
+
+const irACrearCuenta = () => {
+  errorMsg.value = "";
+  vista.value = "crear";
+};
+
+const volverAlLogin = () => {
+  errorMsg.value = "";
+  vista.value = "login";
+  requestAnimationFrame(() => emailEl.value?.focus());
+};
+
+const onSubmit = async () => {
+  errorMsg.value = "";
+  loading.value = true;
+
+  try {
+    const resp = await fetch("http://localhost:3000/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        correo: email.value,
+        contrasena: password.value,
+      }),
+    });
+
+    const raw = await resp.text();
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      data = { mensaje: raw || "Respuesta no válida del servidor" };
+    }
+
+    if (!resp.ok) {
+      errorMsg.value = data?.mensaje || "Credenciales inválidas";
+      requestAnimationFrame(() => passEl.value?.focus());
+      return;
+    }
+
+    localStorage.setItem("usuario", JSON.stringify(data.usuario));
+    vista.value = "principal";
+  } catch (e) {
+    console.error("Error login:", e);
+    errorMsg.value = "Error de conexión con la API";
+    requestAnimationFrame(() => emailEl.value?.focus());
+  } finally {
+    loading.value = false;
+  }
+};
 </script>
 
 <template>
-  <div class="autenticacion">
+  <Principal v-if="vista === 'principal'" />
+
+  <CrearCuenta v-else-if="vista === 'crear'" @volver="volverAlLogin" />
+
+  <div v-else class="autenticacion">
     <div class="autenticacion__fondo" aria-hidden="true"></div>
     <main class="autenticacion__contenedor">
       <section class="marca" aria-label="Move & Lite">
@@ -58,6 +125,7 @@ const ipcHandle = () => window.electron.ipcRenderer.send('ping')
             <span class="campo__etiqueta">Correo</span>
             <div class="campo__control">
               <input
+                ref="emailEl"
                 v-model.trim="email"
                 type="email"
                 autocomplete="email"
@@ -72,6 +140,7 @@ const ipcHandle = () => window.electron.ipcRenderer.send('ping')
             <span class="campo__etiqueta">Contraseña</span>
             <div class="campo__control">
               <input
+                ref="passEl"
                 v-model="password"
                 :type="showPassword ? 'text' : 'password'"
                 autocomplete="current-password"
@@ -86,16 +155,21 @@ const ipcHandle = () => window.electron.ipcRenderer.send('ping')
             <span v-else class="spinner" aria-label="Cargando"></span>
           </button>
 
+          <p v-if="errorMsg" class="mensajeError">{{ errorMsg }}</p>
+
           <div class="crear">
-            <span class="crear__texto">¿No tenés cuenta?</span>
-            <span class="crear__enlace">Crear cuenta</span>
+            <span class="crear__texto">¿No tienes cuenta?</span>
+            <a class="crear__enlace" href="#" @click.prevent="irACrearCuenta">
+              Crear cuenta
+            </a>
           </div>
         </form>
-
       </section>
     </main>
   </div>
 </template>
+
+
 
 <style scoped>
 :root {
@@ -112,19 +186,19 @@ const ipcHandle = () => window.electron.ipcRenderer.send('ping')
 
 * { box-sizing: border-box; }
 
-.autenticacion {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  background: radial-gradient(1200px 700px at 20% 10%, rgba(44, 184, 175, 0.16), transparent 60%),
-              radial-gradient(900px 600px at 90% 70%, rgba(44, 184, 175, 0.10), transparent 55%),
-              linear-gradient(180deg, var(--c-3), #171717 70%);
-  color: var(--texto);
-  padding: 40px;
-  position: relative;
-  overflow: hidden;
-}
+.autenticacion{
+  min-height:100vh;
+  display:grid;
+  place-items:center;
+  padding:40px;
+  position:relative;
+  overflow:hidden;
 
+  background-image: url(./imagenes/fondo3.webp);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
 .autenticacion__fondo {
   position: absolute;
   inset: -2px;
@@ -234,6 +308,12 @@ const ipcHandle = () => window.electron.ipcRenderer.send('ping')
   display: grid;
   gap: 7px;
 }
+.mensajeError{
+  margin: 8px 2px 0;
+  color: rgba(255, 140, 140, .95);
+  font-size: 12.5px;
+}
+
 .estadistica__etiqueta {
   font-size: 12px;
   letter-spacing: 0.4px;

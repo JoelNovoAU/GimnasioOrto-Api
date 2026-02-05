@@ -131,8 +131,14 @@ const volverAlLogin = () => emit("volver");
           <label class="campo">
             <span class="campo__etiqueta">Teléfono</span>
             <div class="campo__control">
-              <input v-model.trim="telefono" type="tel" placeholder="+34 111 234 5678" />
-              <span class="campo__icono" aria-hidden="true">☎</span>
+              <input
+              v-model="telefono"
+              type="tel"
+              inputmode="numeric"
+              maxlength="11"
+              placeholder="+34 111 222 333"
+              />
+            <span class="campo__icono" aria-hidden="true">☎</span>
             </div>
           </label>
 
@@ -203,14 +209,19 @@ const volverAlLogin = () => emit("volver");
   min-height:100vh;
   display:grid;
   place-items:center;
-  background:
-    radial-gradient(1200px 700px at 20% 10%, rgba(44,184,175,.16), transparent 60%),
-    radial-gradient(900px 600px at 90% 70%, rgba(44,184,175,.10), transparent 55%),
-    linear-gradient(180deg, var(--c-3), #171717 70%);
   padding:40px;
   position:relative;
   overflow:hidden;
+
+  background:
+    radial-gradient(1200px 700px at 20% 10%, rgba(44,184,175,.22), transparent 60%),
+    radial-gradient(900px 600px at 90% 70%, rgba(44,184,175,.14), transparent 55%),
+    linear-gradient(180deg, rgba(23,23,23,.92), rgba(18,18,18,.98));
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
+
 
 .autenticacion__fondo{
   position:absolute;
