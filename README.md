@@ -68,10 +68,11 @@ El frontend solo hace un `fetch` al backend, y **el backend** es quien manda el 
 ---
 
 ##  ¿Como enviar el mensaje?
+### Estuctura carpetas
+![Pantalla de registro](ImgReadme/foto6)
+### Codigo que recoge los datos que envia el mensaje
 ![Pantalla de registro](ImgReadme/foto5)
 ![Pantalla de registro](ImgReadme/foto4)
-![Pantalla de registro](ImgReadme/foto5)
-![Pantalla de registro](ImgReadme/foto6)
+### Estuctura para coger token chat id
 ![Pantalla de registro](ImgReadme/foto2)
-![Pantalla de registro](ImgReadme/foto3)
 
