@@ -31,6 +31,40 @@ Cuando un usuario se registra, el backend también envía una **notificación po
 - Notificación Telegram: `./docs/telegram.png`
 
 ---
+# Integración con Telegram + API (Move & Lite)
+
+Este proyecto envía una **notificación por Telegram** cuando se registra un usuario nuevo.  
+La notificación se envía **desde el backend (Node/Express)**, nunca desde el frontend, para no exponer el token del bot.
+
+---
+
+## 1) Crear un Bot de Telegram (paso a paso)
+
+1. Abrí Telegram y buscá **@BotFather**
+2. Escribí: /newbot
+3. BotFather te va a pedir:
+- **Nombre** del bot (ej: `MoveLite Bot`)
+- **Usuario** del bot (debe terminar en `bot`, ej: `movelite_notifier_bot`)
+4. BotFather te entrega un **TOKEN** 
+ Guardá ese token, lo vas a usar en el `.env` como `TELEGRAM_BOT_TOKEN`.
+
+
+## 2) Obtener el CHAT_ID (a dónde llega el mensaje)
+
+### Opción A: Mensaje a un chat personal
+1. Abrí tu bot y tocá **Start**
+2. Enviá cualquier mensaje al bot (ej: "hola")
+3. Abrí en el navegador:
+4. En la respuesta buscá algo como:
+- `"chat":{"id": 123456789, ... }`
+
+Ese número es tu `TELEGRAM_CHAT_ID`.
+
+### Opción B: Grupo (recomendado)
+1. Creá un grupo o usá uno existente
+2. Agregá el bot al grupo
+3. Enviá un mensaje al grupo (para generar updates)
+4. Volvé a abrir:
 
 # Notificación por Telegram (Registro de Usuarios)
 
