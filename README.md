@@ -60,10 +60,6 @@ La notificación se envía **desde el backend (Node/Express)**, nunca desde el f
 
 Ese número es tu `TELEGRAM_CHAT_ID`.
 
-# Notificación por Telegram (Registro de Usuarios)
-
-Este proyecto envía una **notificación automática por Telegram** cada vez que se crea un usuario nuevo desde el endpoint:
-
 - **POST** `/usuarios`
 
 La notificación **NO se envía desde el frontend** (Vue).  
