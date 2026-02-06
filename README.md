@@ -60,12 +60,6 @@ La notificación se envía **desde el backend (Node/Express)**, nunca desde el f
 
 Ese número es tu `TELEGRAM_CHAT_ID`.
 
-### Opción B: Grupo (recomendado)
-1. Creá un grupo o usá uno existente
-2. Agregá el bot al grupo
-3. Enviá un mensaje al grupo (para generar updates)
-4. Volvé a abrir:
-
 # Notificación por Telegram (Registro de Usuarios)
 
 Este proyecto envía una **notificación automática por Telegram** cada vez que se crea un usuario nuevo desde el endpoint:
