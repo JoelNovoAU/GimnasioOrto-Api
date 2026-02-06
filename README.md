@@ -70,6 +70,6 @@ El frontend solo hace un `fetch` al backend, y **el backend** es quien manda el 
 ## ✅ ¿Dónde se envía el mensaje?
 
 En el backend, dentro del endpoint:
-![Pantalla de registro](imgreadme/foto2)
+![Pantalla de registro](ImgReadme/foto2)
 
 
