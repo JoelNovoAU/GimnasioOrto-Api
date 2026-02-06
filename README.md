@@ -13,30 +13,18 @@ Cuando un usuario se registra, el backend también envía una **notificación po
 - bcrypt (hash de contraseñas)
 - CORS
 - dotenv
-- Inngest (endpoint `/api/inngest`)
 - Telegram (notificación al registrar)
 
 **Frontend**
 - Vue 3 
 - Fetch API
 
----
-
-## 📷 Capturas
-
-> Acá pegá tus imágenes
-
-- Pantalla de registro: `./docs/registro.png`
-- Pantalla de login: `./docs/login.png`
-- Notificación Telegram: `./docs/telegram.png`
-
----
 # Integración con Telegram + API (Move & Lite)
 
 Este proyecto envía una **notificación por Telegram** cuando se registra un usuario nuevo.  
 La notificación se envía **desde el backend (Node/Express)**, nunca desde el frontend, para no exponer el token del bot.
 
----
+
 
 ## 1) Crear un Bot de Telegram (paso a paso)
 
