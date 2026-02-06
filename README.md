@@ -39,7 +39,7 @@ Este proyecto envía una **notificación automática por Telegram** cada vez que
 - **POST** `/usuarios`
 
 La notificación **NO se envía desde el frontend** (Vue).  
-El frontend solo hace un `fetch` al backend, y **el backend** (Node/Express) es quien manda el mensaje a Telegram.
+El frontend solo hace un `fetch` al backend, y **el backend** es quien manda el mensaje a Telegram.
 
 ---
 
