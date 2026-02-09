@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { ref, computed } from "vue";
 
 import Principal from "./principal.vue"; 
 import CrearCuenta from "./CrearCuenta.vue"; 
@@ -16,6 +16,14 @@ const errorMsg = ref("");
 const emailEl = ref(null);
 const passEl = ref(null);
 
+const baseUrl = import.meta.env.BASE_URL || "/";
+const toPublicUrl = (path) => {
+  const p = String(path || "").replace(/^\/+/, "");
+  if (!p) return baseUrl;
+  return baseUrl.endsWith("/") ? `${baseUrl}${p}` : `${baseUrl}/${p}`;
+};
+const loginBg = computed(() => `url(${toPublicUrl("imagenes/fondo3.webp")})`);
+
 const irACrearCuenta = () => {
   errorMsg.value = "";
   vista.value = "crear";
@@ -28,43 +36,103 @@ const volverAlLogin = () => {
 };
 
 const onSubmit = async () => {
+  console.clear?.();
+
+  console.group("✅ LOGIN SUBMIT");
+  console.log("1) inicio");
+  console.log("   vista actual:", vista.value);
+  console.log("   email:", email.value);
+  console.log("   password length:", (password.value || "").length);
+
   errorMsg.value = "";
   loading.value = true;
 
+  const controller = new AbortController();
+  const timeoutMs = 8000;
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+
+  const url = "http://localhost:3000/auth/login";
+  const payload = {
+    correo: email.value,
+    contrasena: password.value,
+  };
+
   try {
-    const resp = await fetch("http://localhost:3000/auth/login", {
+    console.log("2) antes fetch");
+    console.log("   URL:", url);
+    console.log("   payload:", payload);
+
+    const t0 = performance.now();
+    const resp = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        correo: email.value,
-        contrasena: password.value,
-      }),
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug": "frontend-login",
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+    const t1 = performance.now();
+
+    console.log("3) despues fetch");
+    console.log("   tiempo(ms):", Math.round(t1 - t0));
+    console.log("   status:", resp.status);
+    console.log("   ok:", resp.ok);
+    console.log("   type:", resp.type);
+    console.log("   redirected:", resp.redirected);
+    console.log("   headers:", Object.fromEntries(resp.headers.entries()));
 
     const raw = await resp.text();
-    let data;
+    console.log("4) body raw:", raw);
+
+    let data = null;
     try {
-      data = JSON.parse(raw);
-    } catch {
+      data = raw ? JSON.parse(raw) : null;
+      console.log("5) body JSON:", data);
+    } catch (err) {
+      console.warn("5) NO es JSON. Error parse:", err);
       data = { mensaje: raw || "Respuesta no válida del servidor" };
     }
 
     if (!resp.ok) {
-      errorMsg.value = data?.mensaje || "Credenciales inválidas";
+      console.warn("6) resp.ok = false");
+      errorMsg.value = data?.mensaje || `Error HTTP ${resp.status}`;
+      console.log("   errorMsg:", errorMsg.value);
       requestAnimationFrame(() => passEl.value?.focus());
       return;
     }
 
-    localStorage.setItem("usuario", JSON.stringify(data.usuario));
+    console.log("6) resp.ok = true -> guardando usuario y cambiando vista");
+    console.log("   data.usuario:", data?.usuario);
+
+    localStorage.setItem("usuario", JSON.stringify(data?.usuario ?? data));
+    console.log("   localStorage usuario:", localStorage.getItem("usuario"));
+
     vista.value = "principal";
+    console.log("7) vista nueva:", vista.value);
+
+    requestAnimationFrame(() => {
+      console.log("8) RAF -> vista (debería ser principal):", vista.value);
+      console.groupEnd();
+    });
   } catch (e) {
-    console.error("Error login:", e);
-    errorMsg.value = "Error de conexión con la API";
+    console.error("❌ CATCH:", e);
+    if (e?.name === "AbortError") {
+      errorMsg.value = `Timeout: la API no respondió en ${timeoutMs}ms`;
+    } else {
+      errorMsg.value = "Error de conexión con la API (CORS, servidor caído o URL incorrecta)";
+    }
+    console.log("   errorMsg:", errorMsg.value);
     requestAnimationFrame(() => emailEl.value?.focus());
+    console.groupEnd();
   } finally {
+    clearTimeout(t);
     loading.value = false;
+    console.log("9) finally -> loading:", loading.value);
   }
 };
+
+
 </script>
 
 <template>
@@ -72,7 +140,7 @@ const onSubmit = async () => {
 
   <CrearCuenta v-else-if="vista === 'crear'" @volver="volverAlLogin" />
 
-  <div v-else class="autenticacion">
+  <div v-else class="autenticacion" :style="{ backgroundImage: loginBg }">
     <div class="autenticacion__fondo" aria-hidden="true"></div>
     <main class="autenticacion__contenedor">
       <section class="marca" aria-label="Move & Lite">
@@ -194,7 +262,7 @@ const onSubmit = async () => {
   position:relative;
   overflow:hidden;
 
-  background-image: url(./imagenes/fondo3.webp);
+  background-image: none;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;

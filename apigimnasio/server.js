@@ -54,6 +54,7 @@ app.post("/usuarios", async (req, res) => {
       correo: String(correo).trim().toLowerCase(),
       telefono: telefono ? String(telefono).trim() : "",
       contrasenaHash,
+       rol: "cliente",
     };
 
     const resultado = await db.collection("usuarios").insertOne(nuevoUsuario);
@@ -105,9 +106,91 @@ app.post("/auth/login", async (req, res) => {
     if (!ok) {
       return res.status(401).json({ ok: false, mensaje: "Credenciales inválidas" });
     }
+
+    return res.json({
+  ok: true,
+  mensaje: "Login correcto",
+  usuario: {
+    id: user._id,
+    nombre: user.nombre,
+    apellido: user.apellido,
+    correo: user.correo,
+    telefono: user.telefono ?? "",
+    rol: user.rol ?? "cliente", 
+  },
+});
+
   } catch (e) {
     console.error("Error en login:", e);
     return res.status(500).json({ ok: false, mensaje: "Error interno del servidor" });
+  }
+});
+
+app.get("/actividades", async (_req, res) => {
+  try {
+    if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
+
+    const items = await db
+      .collection("actividades")
+      .find({})
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    return res.json({ ok: true, actividades: items });
+  } catch (e) {
+    console.error("Error GET /actividades:", e);
+    return res.status(500).json({ ok: false, mensaje: "Error interno" });
+  }
+});
+
+app.post("/actividades", async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
+
+    const { nombre, foto, descripcion, usuario } = req.body;
+
+    if (!usuario || usuario.rol !== "admin") {
+      return res.status(403).json({ ok: false, mensaje: "No autorizado (solo admin)" });
+    }
+
+    if (!nombre || !descripcion) {
+      return res.status(400).json({ ok: false, mensaje: "Faltan campos obligatorios" });
+    }
+
+    const nueva = {
+      nombre: String(nombre).trim(),
+      foto: foto ? String(foto).trim() : "",
+      descripcion: String(descripcion).trim(),
+      createdAt: new Date(),
+    };
+
+    const r = await db.collection("actividades").insertOne(nueva);
+
+    return res.status(201).json({ ok: true, id: r.insertedId, actividad: { ...nueva, _id: r.insertedId } });
+  } catch (e) {
+    console.error("Error POST /actividades:", e);
+    return res.status(500).json({ ok: false, mensaje: "Error interno" });
+  }
+});
+
+app.delete("/actividades/:id", async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
+
+    const { id } = req.params;
+    const { usuario } = req.body;
+
+    if (!usuario || usuario.rol !== "admin") {
+      return res.status(403).json({ ok: false, mensaje: "No autorizado (solo admin)" });
+    }
+
+    const { ObjectId } = await import("mongodb");
+    const r = await db.collection("actividades").deleteOne({ _id: new ObjectId(id) });
+
+    return res.json({ ok: true, deletedCount: r.deletedCount });
+  } catch (e) {
+    console.error("Error DELETE /actividades/:id:", e);
+    return res.status(500).json({ ok: false, mensaje: "Error interno" });
   }
 });
 
