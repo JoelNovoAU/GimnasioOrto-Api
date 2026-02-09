@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
+import ActividadIndividual from "./actividad_individual.vue";
 
 
 const usuario = ref(null);
@@ -30,10 +31,39 @@ const actividadesFiltradas = computed(() => {
   if (!q) return actividades.value;
   return actividades.value.filter((a) => (a.nombre || "").toLowerCase().includes(q));
 });
+const vistaActividad = ref("lista");
+const actividadSeleccionadaId = ref("");
+const cerrarSesion = () => {
+  localStorage.removeItem("usuario");
+  usuario.value = null;
+
+  window.location.reload();
+
+};
 
 const abrirActividad = (actividad) => {
-  alert(`Abrir actividad: ${actividad.nombre}`);
+  console.log("CLICK tarjeta -> actividad completa:", actividad);
+
+  const id = actividad?._id || actividad?.id;
+  console.log("ID detectado:", id);
+
+  if (!id) {
+    console.warn("⚠️ No hay _id ni id en la actividad. Claves disponibles:", Object.keys(actividad || {}));
+    return;
+  }
+
+  console.log("Intentando abrir detalle de actividad:", `/actividad_individual/${id}`);
+
+  actividadSeleccionadaId.value = id;
+  vistaActividad.value = "detalle";
+
 };
+
+const volverALista = () => {
+  vistaActividad.value = "lista";
+  actividadSeleccionadaId.value = "";
+};
+
 
 const nombreMostrado = computed(() => {
   const u = usuario.value;
@@ -66,7 +96,7 @@ const normalizarFoto = (foto, fallback) => {
 
 const fotoMostrada = computed(() => {
   const u = usuario.value;
-  return normalizarFoto(u?.foto, "imagenes/fondo4.webp");
+  return normalizarFoto(u?.foto, "imagenes/persona1.jpg");
 });
 
 const esAdmin = computed(() => usuario.value?.rol === "admin");
@@ -103,7 +133,7 @@ const crearActividad = async () => {
     nuevaNombre.value = "";
     nuevaFoto.value = "";
     nuevaDescripcion.value = "";
-    msgCrear.value = "✅ Actividad creada";
+    msgCrear.value = "Actividad creada";
 
     await cargarActividades(); 
   } catch (e) {
@@ -127,25 +157,37 @@ onMounted(() => {
 
 <template>
   <div class="principal">
-    <header class="topbar">
-      <div class="topbar__izq">
-        <h1 class="topbar__titulo">Principal</h1>
-        <p class="topbar__subtitulo">Bienvenido/a a tu panel</p>
-      </div>
+   <header class="topbar">
+  <div class="topbar__izq">
+    <h1 class="topbar__titulo">Principal</h1>
+    <p class="topbar__subtitulo">Bienvenido/a a tu panel</p>
+  </div>
 
-      <div class="topbar__der" aria-label="Usuario">
-        <div class="usuario">
-          <img class="usuario__foto" :src="fotoMostrada" alt="Foto de usuario" />
-          <div class="usuario__info">
-            <span class="usuario__etiqueta">Usuario</span>
-            <span class="usuario__nombre">{{ nombreMostrado }}</span>
-          </div>
-        </div>
+  <div class="topbar__der" aria-label="Usuario">
+    <div class="usuario">
+      <img class="usuario__foto" :src="fotoMostrada" alt="Foto de usuario" />
+      <div class="usuario__info">
+        <span class="usuario__etiqueta">Usuario</span>
+        <span class="usuario__nombre">{{ nombreMostrado }}</span>
       </div>
-    </header>
+      <span v-if="esAdmin" class="badgeAdmin">ADMIN</span>
+    </div>
+
+    <button class="btnSalir" type="button" @click="cerrarSesion" title="Cerrar sesión">
+      <img class="iconosalir" src="/imagenes/logout.png" alt="Salir" />
+    </button>
+  </div>
+</header>
+
 
     <main class="contenido">
       <section class="seccion">
+        <ActividadIndividual
+          v-if="vistaActividad === 'detalle'"
+          :id="actividadSeleccionadaId"
+          :onVolver="volverALista"
+        />
+        <template v-else>
         <div class="seccion__header">
           <div>
             <h2 class="seccion__titulo">Actividades</h2>
@@ -182,13 +224,16 @@ onMounted(() => {
 
         <div v-else class="grid">
           <article
-            v-for="actividad in actividadesFiltradas"
-            :key="actividad._id || actividad.id"
-            class="tarjeta"
-            @click="abrirActividad(actividad)"
-            role="button"
-            tabindex="0"
-          >
+  v-for="actividad in actividadesFiltradas"
+  :key="actividad._id || actividad.id"
+  class="tarjeta"
+@click="console.log('CLICK DOM tarjeta'); abrirActividad(actividad)"
+  @keydown.enter.prevent="abrirActividad(actividad)"
+  @keydown.space.prevent="abrirActividad(actividad)"
+  role="button"
+  tabindex="0"
+>
+
             <div class="tarjeta__imgWrap">
               <img
                 class="tarjeta__img"
@@ -211,6 +256,7 @@ onMounted(() => {
         <p v-if="!cargandoAct && !errorAct && actividadesFiltradas.length === 0" class="vacio">
           No se encontraron actividades.
         </p>
+        </template>
       </section>
     </main>
   </div>
@@ -242,26 +288,48 @@ onMounted(() => {
 
 .topbar{
   display:flex;
-  align-items:flex-end;
+  align-items:center;
   justify-content:space-between;
   gap:16px;
-  padding: 18px 18px 16px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
-  border: 1px solid rgba(255,255,255,.08);
-  box-shadow: var(--sombra);
+  padding: 18px 18px;
+  border-radius: 20px;
+
+  background:
+    radial-gradient(700px 220px at 12% 30%, rgba(44,184,175,.22), transparent 60%),
+    radial-gradient(520px 220px at 92% 10%, rgba(44,184,175,.14), transparent 65%),
+    linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+  border: 1px solid rgba(44,184,175,.22);
+  box-shadow: 0 18px 60px rgba(0,0,0,.55);
+  position: relative;
+  overflow: hidden;
+}
+
+.topbar::before{
+  content:"";
+  position:absolute;
+  left:0; top:0;
+  width:100%;
+  height:3px;
+  background: linear-gradient(90deg, rgba(44,184,175,.0), rgba(44,184,175,.95), rgba(44,184,175,.0));
+  opacity:.9;
 }
 
 .topbar__titulo{
   margin:0;
   font-size: 22px;
   letter-spacing:.2px;
+  font-weight: 950;
 }
-
 .topbar__subtitulo{
   margin: 6px 0 0;
   color: var(--muted);
   font-size: 13.5px;
+}
+
+.topbar__der{
+  display:flex;
+  align-items:center;
+  gap:12px;
 }
 
 .usuario{
@@ -269,17 +337,70 @@ onMounted(() => {
   align-items:center;
   gap:10px;
   padding:10px 12px;
-  border-radius: 14px;
-  background: rgba(255,255,255,.05);
-  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 16px;
+  background: rgba(0,0,0,.20);
+  border: 1px solid rgba(44,184,175,.18);
+  box-shadow: 0 10px 26px rgba(0,0,0,.22);
 }
 
 .usuario__foto{
   width: 42px;
   height: 42px;
-  border-radius: 12px;
+  border-radius: 14px;
   object-fit: cover;
-  border: 1px solid rgba(44,184,175,.35);
+  border: 1px solid rgba(44,184,175,.45);
+  box-shadow: 0 0 0 3px rgba(44,184,175,.10);
+}
+
+.usuario__etiqueta{
+  font-size: 10.5px;
+  color: rgba(44,184,175,.85);   
+  letter-spacing: .45px;
+  text-transform: uppercase;
+}
+.usuario__nombre{
+  font-weight: 900;
+  font-size: 13.5px;
+}
+
+.badgeAdmin{
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: .6px;
+  color: rgba(44,184,175,.95);
+  background: rgba(44,184,175,.12);
+  border: 1px solid rgba(44,184,175,.28);
+  padding: 6px 9px;
+  border-radius: 999px;
+}
+
+.btnSalir{
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid rgba(44,184,175,.25);
+  background: rgba(0,0,0,.20);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.btnSalir:hover{
+  transform: translateY(-1px);
+  border-color: rgba(44,184,175,.55);
+  background: rgba(44,184,175,.10);
+  box-shadow: 0 14px 30px rgba(0,0,0,.35), 0 0 0 4px rgba(44,184,175,.10);
+}
+
+.iconosalir{
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  display:block;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.45));
 }
 
 .usuario__info{
@@ -348,6 +469,7 @@ onMounted(() => {
   display:grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 14px;
+  margin-top: 20px;
 }
 
 .tarjeta{

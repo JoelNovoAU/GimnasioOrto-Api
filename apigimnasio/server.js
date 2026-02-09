@@ -194,6 +194,32 @@ app.delete("/actividades/:id", async (req, res) => {
   }
 });
 
+app.get("/actividades/:id", async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
+
+    const { id } = req.params;
+    const { ObjectId } = await import("mongodb");
+
+    let oid;
+    try {
+      oid = new ObjectId(id);
+    } catch {
+      return res.status(400).json({ ok: false, mensaje: "ID inválido" });
+    }
+
+    const act = await db.collection("actividades").findOne({ _id: oid });
+    if (!act) return res.status(404).json({ ok: false, mensaje: "Actividad no encontrada" });
+
+    return res.json({ ok: true, actividad: act });
+  } catch (e) {
+    console.error("Error GET /actividades/:id:", e);
+    return res.status(500).json({ ok: false, mensaje: "Error interno" });
+  }
+});
+
+
+
 app.use(
   "/api/inngest",
   serve({
