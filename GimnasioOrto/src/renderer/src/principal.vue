@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
+import ConfirmModal from "./components/ConfirmModal.vue";
 
 
 const usuario = ref(null);
@@ -132,11 +133,25 @@ const nuevaMaximo = ref("");
 const creando = ref(false);
 const msgCrear = ref("");
 const mostrarModalCrear = ref(false);
+const esEdicion = ref(false);
+const editId = ref("");
 const reservando = ref(false);
 const msgReserva = ref("");
+const confirmOpen = ref(false);
+const confirmTitle = ref("Confirmar");
+const confirmMessage = ref("");
+const confirmAction = ref(null);
 
 const abrirModalCrear = () => {
   msgCrear.value = "";
+  esEdicion.value = false;
+  editId.value = "";
+  nuevaNombre.value = "";
+  nuevaFoto.value = "";
+  nuevaDescripcion.value = "";
+  nuevaDia.value = "";
+  nuevaHora.value = "";
+  nuevaMaximo.value = "";
   mostrarModalCrear.value = true;
 };
 const cerrarModalCrear = () => {
@@ -144,7 +159,24 @@ const cerrarModalCrear = () => {
   mostrarModalCrear.value = false;
 };
 
-const crearActividad = async () => {
+const abrirModalEditar = (actividad) => {
+  if (!actividad) return;
+  msgCrear.value = "";
+  esEdicion.value = true;
+  editId.value = actividad?._id || actividad?.id || "";
+  nuevaNombre.value = actividad?.nombre || "";
+  nuevaFoto.value = actividad?.foto || "";
+  nuevaDescripcion.value = actividad?.descripcion || "";
+  nuevaDia.value = actividad?.dia || "";
+  nuevaHora.value = actividad?.hora || "";
+  nuevaMaximo.value =
+    actividad?.maximoPersonas !== null && actividad?.maximoPersonas !== undefined
+      ? String(actividad.maximoPersonas)
+      : "";
+  mostrarModalCrear.value = true;
+};
+
+const guardarActividad = async () => {
   msgCrear.value = "";
   if (!nuevaNombre.value.trim() || !nuevaDescripcion.value.trim()) {
     msgCrear.value = "Nombre y descripción son obligatorios.";
@@ -153,8 +185,11 @@ const crearActividad = async () => {
 
   creando.value = true;
   try {
-    const resp = await fetch(`${API}/actividades`, {
-      method: "POST",
+    const esEdit = esEdicion.value && editId.value;
+    const url = esEdit ? `${API}/actividades/${editId.value}` : `${API}/actividades`;
+    const method = esEdit ? "PUT" : "POST";
+    const resp = await fetch(url, {
+      method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         nombre: nuevaNombre.value,
@@ -176,7 +211,7 @@ const crearActividad = async () => {
     nuevaDia.value = "";
     nuevaHora.value = "";
     nuevaMaximo.value = "";
-    msgCrear.value = "Actividad creada";
+    msgCrear.value = esEdit ? "Actividad actualizada" : "Actividad creada";
 
     await cargarActividades(); 
     cerrarModalCrear();
@@ -185,6 +220,46 @@ const crearActividad = async () => {
   } finally {
     creando.value = false;
   }
+};
+
+const solicitarConfirmacion = (title, message, action) => {
+  confirmTitle.value = title;
+  confirmMessage.value = message;
+  confirmAction.value = action;
+  confirmOpen.value = true;
+};
+const cancelarConfirmacion = () => {
+  confirmOpen.value = false;
+  confirmAction.value = null;
+};
+const aceptarConfirmacion = async () => {
+  const action = confirmAction.value;
+  cancelarConfirmacion();
+  if (typeof action === "function") await action();
+};
+
+const eliminarActividad = async (actividad) => {
+  const id = actividad?._id || actividad?.id;
+  if (!id) return;
+  try {
+    const resp = await fetch(`${API}/actividades/${id}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ usuario: usuario.value }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.ok) throw new Error(data.mensaje || "No se pudo eliminar");
+    await cargarActividades();
+  } catch (e) {
+    alert(e?.message || "Error");
+  }
+};
+const solicitarEliminarActividad = (actividad) => {
+  solicitarConfirmacion(
+    "Eliminar actividad",
+    "¿Seguro que quieres eliminar esta actividad? Esta acción no se puede deshacer.",
+    () => eliminarActividad(actividad)
+  );
 };
 
 onMounted(() => {
@@ -299,7 +374,7 @@ const reservarActividad = async () => {
         <div v-if="mostrarModalCrear" class="modalBackdrop" @click.self="cerrarModalCrear">
           <div class="modal">
             <div class="modalHeader">
-              <h3 class="modalTitle">Crear actividad</h3>
+              <h3 class="modalTitle">{{ esEdicion ? "Modificar actividad" : "Crear actividad" }}</h3>
               <button class="modalClose" type="button" @click="cerrarModalCrear" aria-label="Cerrar">
                 ×
               </button>
@@ -322,8 +397,8 @@ const reservarActividad = async () => {
             </div>
 
             <div class="modalActions">
-              <button class="adminBtn" type="button" :disabled="creando" @click="crearActividad">
-                {{ creando ? "Creando…" : "Crear" }}
+              <button class="adminBtn" type="button" :disabled="creando" @click="guardarActividad">
+                {{ creando ? "Guardando…" : esEdicion ? "Guardar" : "Crear" }}
               </button>
               <button class="adminBtn adminBtn--ghost" type="button" :disabled="creando" @click="cerrarModalCrear">
                 Cancelar
@@ -370,9 +445,27 @@ const reservarActividad = async () => {
                 <span v-if="actividad.hora" class="metaItem">Hora: {{ actividad.hora }}</span>
               </div>
 
-              <div class="tarjeta__footer">
-                <span class="chip">Ver detalles</span>
-              </div>
+            <div class="tarjeta__footer">
+              <button class="actionBtn" type="button" @click.stop="abrirActividad(actividad)">
+                Ver detalles
+              </button>
+              <button
+                v-if="esAdmin"
+                class="actionBtn actionBtn--edit"
+                type="button"
+                @click.stop="abrirModalEditar(actividad)"
+              >
+                Modificar
+              </button>
+              <button
+                v-if="esAdmin"
+                class="actionBtn actionBtn--delete"
+                type="button"
+                @click.stop="solicitarEliminarActividad(actividad)"
+              >
+                Eliminar
+              </button>
+            </div>
             </div>
           </article>
         </div>
@@ -383,7 +476,7 @@ const reservarActividad = async () => {
       </section>
     </main>
 
-        <div v-if="mostrarModalDetalle && actividadSeleccionada" class="modalBackdrop" @click.self="cerrarActividad">
+    <div v-if="mostrarModalDetalle && actividadSeleccionada" class="modalBackdrop" @click.self="cerrarActividad">
       <div class="modal modal--detalle">
         <div class="modalHeader">
           <h3 class="modalTitle">{{ actividadSeleccionada.nombre }}</h3>
@@ -437,6 +530,16 @@ const reservarActividad = async () => {
       </div>
     </div>
   </div>
+
+  <ConfirmModal
+    :open="confirmOpen"
+    :title="confirmTitle"
+    :message="confirmMessage"
+    confirm-text="Eliminar"
+    cancel-text="Cancelar"
+    @confirm="aceptarConfirmacion"
+    @cancel="cancelarConfirmacion"
+  />
 </template>
 
 <style scoped>
@@ -733,7 +836,36 @@ const reservarActividad = async () => {
 .tarjeta__footer{
   margin-top: 12px;
   display:flex;
-  justify-content:flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content:flex-start;
+}
+
+.actionBtn{
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(44,184,175,.95);
+  background: rgba(44,184,175,.10);
+  border: 1px solid rgba(44,184,175,.22);
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.actionBtn:hover{
+  transform: translateY(-1px);
+  border-color: rgba(44,184,175,.45);
+  box-shadow: 0 10px 20px rgba(0,0,0,.25);
+}
+.actionBtn--edit{
+  color: #f4f2ee;
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.20);
+}
+.actionBtn--delete{
+  color: #ffe5e5;
+  background: rgba(255, 120, 120, .14);
+  border-color: rgba(255, 120, 120, .28);
 }
 
 .chip{

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
+import ConfirmModal from "./components/ConfirmModal.vue";
 
 const API = "http://localhost:3000";
 const router = useRouter();
@@ -10,6 +11,10 @@ const actividades = ref([]);
 const reservasIds = ref(new Set());
 const cargando = ref(false);
 const error = ref("");
+const confirmOpen = ref(false);
+const confirmTitle = ref("Confirmar");
+const confirmMessage = ref("");
+const confirmAction = ref(null);
 
 const cargarDatos = async () => {
   error.value = "";
@@ -35,6 +40,48 @@ const cargarDatos = async () => {
   } finally {
     cargando.value = false;
   }
+};
+
+const solicitarConfirmacion = (title, message, action) => {
+  confirmTitle.value = title;
+  confirmMessage.value = message;
+  confirmAction.value = action;
+  confirmOpen.value = true;
+};
+const cancelarConfirmacion = () => {
+  confirmOpen.value = false;
+  confirmAction.value = null;
+};
+const aceptarConfirmacion = async () => {
+  const action = confirmAction.value;
+  cancelarConfirmacion();
+  if (typeof action === "function") await action();
+};
+
+const cancelarReserva = async (actividadId) => {
+  if (!actividadId) return;
+  try {
+    const resp = await fetch(`${API}/reservas`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        actividadId,
+        usuario: usuario.value,
+      }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.ok) throw new Error(data.mensaje || "No se pudo cancelar");
+    await cargarDatos();
+  } catch (e) {
+    alert(e?.message || "Error");
+  }
+};
+const solicitarCancelarReserva = (actividadId) => {
+  solicitarConfirmacion(
+    "Cancelar reserva",
+    "¿Seguro que quieres cancelar esta reserva?",
+    () => cancelarReserva(actividadId)
+  );
 };
 
 const actividadesReservadas = computed(() => {
@@ -118,6 +165,15 @@ onMounted(() => {
                 <span v-if="actividad.dia" class="metaItem">Día: {{ actividad.dia }}</span>
                 <span v-if="actividad.hora" class="metaItem">Hora: {{ actividad.hora }}</span>
               </div>
+              <div class="tarjeta__acciones">
+                <button
+                  class="btnCancelar"
+                  type="button"
+                  @click="solicitarCancelarReserva(actividad._id || actividad.id)"
+                >
+                  Cancelar reserva
+                </button>
+              </div>
             </div>
           </article>
         </div>
@@ -128,6 +184,16 @@ onMounted(() => {
       </section>
     </main>
   </div>
+
+  <ConfirmModal
+    :open="confirmOpen"
+    :title="confirmTitle"
+    :message="confirmMessage"
+    confirm-text="Confirmar"
+    cancel-text="Volver"
+    @confirm="aceptarConfirmacion"
+    @cancel="cancelarConfirmacion"
+  />
 </template>
 
 <style scoped>
@@ -262,6 +328,27 @@ onMounted(() => {
   gap: 8px;
   font-size: 12px;
   color: var(--muted);
+}
+.tarjeta__acciones{
+  margin-top: 10px;
+  display:flex;
+  justify-content:flex-start;
+}
+.btnCancelar{
+  font-size: 12px;
+  font-weight: 800;
+  color: #ffe5e5;
+  background: rgba(255, 120, 120, .14);
+  border: 1px solid rgba(255, 120, 120, .28);
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.btnCancelar:hover{
+  transform: translateY(-1px);
+  border-color: rgba(255, 120, 120, .45);
+  box-shadow: 0 10px 20px rgba(0,0,0,.25);
 }
 .metaItem{
   padding: 4px 8px;

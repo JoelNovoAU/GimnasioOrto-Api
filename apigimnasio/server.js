@@ -200,6 +200,62 @@ app.post("/actividades", async (req, res) => {
   }
 });
 
+app.put("/actividades/:id", async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
+
+    const { id } = req.params;
+    const { nombre, foto, descripcion, dia, hora, maximoPersonas, usuario } = req.body;
+
+    if (!usuario || usuario.rol !== "admin") {
+      return res.status(403).json({ ok: false, mensaje: "No autorizado (solo admin)" });
+    }
+
+    if (!nombre || !descripcion) {
+      return res.status(400).json({ ok: false, mensaje: "Faltan campos obligatorios" });
+    }
+
+    let maximo = null;
+    if (maximoPersonas !== undefined && maximoPersonas !== null && String(maximoPersonas).trim() !== "") {
+      const n = Number(maximoPersonas);
+      if (!Number.isFinite(n) || n <= 0) {
+        return res
+          .status(400)
+          .json({ ok: false, mensaje: "El máximo de personas debe ser un número válido" });
+      }
+      maximo = Math.floor(n);
+    }
+
+    const { ObjectId } = await import("mongodb");
+    let oid;
+    try {
+      oid = new ObjectId(id);
+    } catch {
+      return res.status(400).json({ ok: false, mensaje: "ID inválido" });
+    }
+
+    const update = {
+      nombre: String(nombre).trim(),
+      foto: foto ? String(foto).trim() : "",
+      descripcion: String(descripcion).trim(),
+      dia: dia ? String(dia).trim() : "",
+      hora: hora ? String(hora).trim() : "",
+      maximoPersonas: maximo,
+      updatedAt: new Date(),
+    };
+
+    const r = await db.collection("actividades").updateOne({ _id: oid }, { $set: update });
+    if (!r.matchedCount) {
+      return res.status(404).json({ ok: false, mensaje: "Actividad no encontrada" });
+    }
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("Error PUT /actividades/:id:", e);
+    return res.status(500).json({ ok: false, mensaje: "Error interno" });
+  }
+});
+
 app.delete("/actividades/:id", async (req, res) => {
   try {
     if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
@@ -328,6 +384,42 @@ app.post("/reservas", async (req, res) => {
     return res.status(201).json({ ok: true, id: r.insertedId });
   } catch (e) {
     console.error("Error POST /reservas:", e);
+    return res.status(500).json({ ok: false, mensaje: "Error interno" });
+  }
+});
+
+app.delete("/reservas", async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
+
+    const { actividadId, usuario } = req.body;
+    const usuarioId = String(usuario?.id || usuario?._id || "").trim();
+    if (!usuarioId) {
+      return res.status(400).json({ ok: false, mensaje: "Usuario inválido" });
+    }
+    if (!actividadId) {
+      return res.status(400).json({ ok: false, mensaje: "Actividad inválida" });
+    }
+
+    const { ObjectId } = await import("mongodb");
+    let actOid;
+    try {
+      actOid = new ObjectId(actividadId);
+    } catch {
+      return res.status(400).json({ ok: false, mensaje: "ID de actividad inválido" });
+    }
+
+    const r = await db
+      .collection("reservas")
+      .deleteOne({ actividadId: actOid, usuarioId });
+
+    if (!r.deletedCount) {
+      return res.status(404).json({ ok: false, mensaje: "Reserva no encontrada" });
+    }
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("Error DELETE /reservas:", e);
     return res.status(500).json({ ok: false, mensaje: "Error interno" });
   }
 });
