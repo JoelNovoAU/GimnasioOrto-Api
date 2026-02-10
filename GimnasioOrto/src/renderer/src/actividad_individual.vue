@@ -14,6 +14,30 @@ const actividad = ref(null);
 
 const actividadId = computed(() => String(props.id ?? ""));
 
+const baseUrl = import.meta.env.BASE_URL || "/";
+const toPublicUrl = (path) => {
+  const p = String(path || "").replace(/^\/+/, "");
+  if (!p) return baseUrl;
+  return baseUrl.endsWith("/") ? `${baseUrl}${p}` : `${baseUrl}/${p}`;
+};
+
+const normalizarFoto = (foto, fallback) => {
+  const resolvedFallback =
+    fallback && (fallback.startsWith("http") ? fallback : toPublicUrl(fallback));
+
+  if (!foto || typeof foto !== "string") return resolvedFallback;
+  const f = foto.trim();
+  if (!f) return resolvedFallback;
+  if (f.startsWith("http://") || f.startsWith("https://")) return f;
+  if (f.startsWith("/")) return toPublicUrl(f.slice(1));
+  if (f.startsWith("imagenes/")) return toPublicUrl(f);
+  return toPublicUrl(`imagenes/${f}`);
+};
+
+const fotoMostrada = computed(() =>
+  normalizarFoto(actividad.value?.foto, "imagenes/fondo2.jpg")
+);
+
 const cargarActividad = async () => {
   if (!actividadId.value) return;
   error.value = "";
@@ -49,7 +73,7 @@ const volver = () => {
     <p v-else-if="error" class="estado">⚠️ {{ error }}</p>
 
     <section v-else-if="actividad" class="card">
-      <img class="foto" :src="actividad.foto" alt="" />
+      <img class="foto" :src="fotoMostrada" :alt="actividad.nombre || 'Actividad'" />
       <div class="body">
         <h2 class="nombre">{{ actividad.nombre }}</h2>
         <p class="desc">{{ actividad.descripcion }}</p>

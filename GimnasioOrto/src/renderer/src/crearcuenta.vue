@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed } from "vue";
+import { useRouter } from "vue-router";
 
 const nombre = ref("");
 const apellido = ref("");
@@ -11,6 +12,7 @@ const confirmarContrasena = ref("");
 const mostrarContrasena = ref(false);
 const mostrarConfirmacion = ref(false);
 const cargando = ref(false);
+const router = useRouter();
 
 const contrasenasCoinciden = computed(
   () => contrasena.value === confirmarContrasena.value
@@ -40,7 +42,7 @@ const enviarFormulario = async () => {
       return;
     }
 
-    volverAlLogin();
+    router.push("/");
   } catch (e) {
   console.error("Error real del fetch:", e);
   alert("Error de conexión con la API: " + (e?.message || "desconocido"));
@@ -51,8 +53,7 @@ const enviarFormulario = async () => {
 };
 
 
-const emit = defineEmits(["volver"]);
-const volverAlLogin = () => emit("volver");
+const volverAlLogin = () => router.push("/");
 </script>
 
 <template>

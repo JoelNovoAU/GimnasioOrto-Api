@@ -136,7 +136,20 @@ app.get("/actividades", async (_req, res) => {
       .sort({ createdAt: -1 })
       .toArray();
 
-    return res.json({ ok: true, actividades: items });
+    const counts = await db
+      .collection("reservas")
+      .aggregate([{ $group: { _id: "$actividadId", total: { $sum: 1 } } }])
+      .toArray();
+    const map = new Map(counts.map((c) => [String(c._id), c.total]));
+
+    const enriquecidas = items.map((a) => {
+      const total = map.get(String(a._id)) || 0;
+      const maximo = Number(a.maximoPersonas);
+      const llena = Number.isFinite(maximo) && maximo > 0 ? total >= maximo : false;
+      return { ...a, reservasCount: total, llena };
+    });
+
+    return res.json({ ok: true, actividades: enriquecidas });
   } catch (e) {
     console.error("Error GET /actividades:", e);
     return res.status(500).json({ ok: false, mensaje: "Error interno" });
@@ -147,7 +160,7 @@ app.post("/actividades", async (req, res) => {
   try {
     if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
 
-    const { nombre, foto, descripcion, usuario } = req.body;
+    const { nombre, foto, descripcion, dia, hora, maximoPersonas, usuario } = req.body;
 
     if (!usuario || usuario.rol !== "admin") {
       return res.status(403).json({ ok: false, mensaje: "No autorizado (solo admin)" });
@@ -157,10 +170,24 @@ app.post("/actividades", async (req, res) => {
       return res.status(400).json({ ok: false, mensaje: "Faltan campos obligatorios" });
     }
 
+    let maximo = null;
+    if (maximoPersonas !== undefined && maximoPersonas !== null && String(maximoPersonas).trim() !== "") {
+      const n = Number(maximoPersonas);
+      if (!Number.isFinite(n) || n <= 0) {
+        return res
+          .status(400)
+          .json({ ok: false, mensaje: "El máximo de personas debe ser un número válido" });
+      }
+      maximo = Math.floor(n);
+    }
+
     const nueva = {
       nombre: String(nombre).trim(),
       foto: foto ? String(foto).trim() : "",
       descripcion: String(descripcion).trim(),
+      dia: dia ? String(dia).trim() : "",
+      hora: hora ? String(hora).trim() : "",
+      maximoPersonas: maximo,
       createdAt: new Date(),
     };
 
@@ -211,9 +238,96 @@ app.get("/actividades/:id", async (req, res) => {
     const act = await db.collection("actividades").findOne({ _id: oid });
     if (!act) return res.status(404).json({ ok: false, mensaje: "Actividad no encontrada" });
 
-    return res.json({ ok: true, actividad: act });
+    const total = await db.collection("reservas").countDocuments({ actividadId: oid });
+    const maximo = Number(act.maximoPersonas);
+    const llena = Number.isFinite(maximo) && maximo > 0 ? total >= maximo : false;
+
+    return res.json({ ok: true, actividad: { ...act, reservasCount: total, llena } });
   } catch (e) {
     console.error("Error GET /actividades/:id:", e);
+    return res.status(500).json({ ok: false, mensaje: "Error interno" });
+  }
+});
+
+app.get("/reservas", async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
+
+    const { usuarioId } = req.query;
+    const uid = String(usuarioId || "").trim();
+    if (!uid) {
+      return res.status(400).json({ ok: false, mensaje: "usuarioId es obligatorio" });
+    }
+
+    const reservas = await db
+      .collection("reservas")
+      .find({ usuarioId: uid })
+      .project({ _id: 1, actividadId: 1, createdAt: 1 })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    const normalizadas = reservas.map((r) => ({
+      id: r._id,
+      actividadId: String(r.actividadId),
+      createdAt: r.createdAt,
+    }));
+
+    return res.json({ ok: true, reservas: normalizadas });
+  } catch (e) {
+    console.error("Error GET /reservas:", e);
+    return res.status(500).json({ ok: false, mensaje: "Error interno" });
+  }
+});
+
+app.post("/reservas", async (req, res) => {
+  try {
+    if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
+
+    const { actividadId, usuario } = req.body;
+    const usuarioId = String(usuario?.id || usuario?._id || "").trim();
+    if (!usuarioId) {
+      return res.status(400).json({ ok: false, mensaje: "Usuario inválido" });
+    }
+    if (!actividadId) {
+      return res.status(400).json({ ok: false, mensaje: "Actividad inválida" });
+    }
+
+    const { ObjectId } = await import("mongodb");
+    let actOid;
+    try {
+      actOid = new ObjectId(actividadId);
+    } catch {
+      return res.status(400).json({ ok: false, mensaje: "ID de actividad inválido" });
+    }
+
+    const actividad = await db.collection("actividades").findOne({ _id: actOid });
+    if (!actividad) {
+      return res.status(404).json({ ok: false, mensaje: "Actividad no encontrada" });
+    }
+
+    const existente = await db.collection("reservas").findOne({ actividadId: actOid, usuarioId });
+    if (existente) {
+      return res.status(409).json({ ok: false, mensaje: "Ya tienes una reserva en esta actividad" });
+    }
+
+    const maximo = Number(actividad.maximoPersonas);
+    if (Number.isFinite(maximo) && maximo > 0) {
+      const total = await db.collection("reservas").countDocuments({ actividadId: actOid });
+      if (total >= maximo) {
+        return res.status(409).json({ ok: false, mensaje: "La actividad está completa" });
+      }
+    }
+
+    const reserva = {
+      actividadId: actOid,
+      usuarioId,
+      createdAt: new Date(),
+    };
+    const r = await db.collection("reservas").insertOne(reserva);
+
+    return res.status(201).json({ ok: true, id: r.insertedId });
+  } catch (e) {
+    console.error("Error POST /reservas:", e);
     return res.status(500).json({ ok: false, mensaje: "Error interno" });
   }
 });

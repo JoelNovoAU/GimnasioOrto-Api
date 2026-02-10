@@ -1,14 +1,16 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
-import ActividadIndividual from "./actividad_individual.vue";
+import { useRouter } from "vue-router";
 
 
 const usuario = ref(null);
+const router = useRouter();
 
 const API = "http://localhost:3000";
 const actividades = ref([]);
 const cargandoAct = ref(false);
 const errorAct = ref("");
+const reservasIds = ref(new Set());
 
 const cargarActividades = async () => {
   errorAct.value = "";
@@ -25,20 +27,39 @@ const cargarActividades = async () => {
   }
 };
 
+const cargarReservas = async () => {
+  const uid = usuario.value?.id || usuario.value?._id;
+  if (!uid) {
+    reservasIds.value = new Set();
+    return;
+  }
+  try {
+    const resp = await fetch(`${API}/reservas?usuarioId=${encodeURIComponent(uid)}`);
+    const data = await resp.json();
+    if (!resp.ok || !data.ok) throw new Error(data.mensaje || "Error cargando reservas");
+    const set = new Set((data.reservas || []).map((r) => String(r.actividadId)));
+    reservasIds.value = set;
+  } catch (e) {
+  } finally {
+  }
+};
+
 const busqueda = ref("");
 const actividadesFiltradas = computed(() => {
   const q = busqueda.value.trim().toLowerCase();
   if (!q) return actividades.value;
   return actividades.value.filter((a) => (a.nombre || "").toLowerCase().includes(q));
 });
-const vistaActividad = ref("lista");
-const actividadSeleccionadaId = ref("");
+const actividadSeleccionada = ref(null);
+const mostrarModalDetalle = ref(false);
 const cerrarSesion = () => {
   localStorage.removeItem("usuario");
   usuario.value = null;
+  router.push("/");
+};
 
-  window.location.reload();
-
+const irMisReservas = () => {
+  router.push("/mis-reservas");
 };
 
 const abrirActividad = (actividad) => {
@@ -54,14 +75,15 @@ const abrirActividad = (actividad) => {
 
   console.log("Intentando abrir detalle de actividad:", `/actividad_individual/${id}`);
 
-  actividadSeleccionadaId.value = id;
-  vistaActividad.value = "detalle";
+  actividadSeleccionada.value = actividad;
+  mostrarModalDetalle.value = true;
 
 };
 
-const volverALista = () => {
-  vistaActividad.value = "lista";
-  actividadSeleccionadaId.value = "";
+const cerrarActividad = () => {
+  mostrarModalDetalle.value = false;
+  actividadSeleccionada.value = null;
+  msgReserva.value = "";
 };
 
 
@@ -104,8 +126,23 @@ const esAdmin = computed(() => usuario.value?.rol === "admin");
 const nuevaNombre = ref("");
 const nuevaFoto = ref("");
 const nuevaDescripcion = ref("");
+const nuevaDia = ref("");
+const nuevaHora = ref("");
+const nuevaMaximo = ref("");
 const creando = ref(false);
 const msgCrear = ref("");
+const mostrarModalCrear = ref(false);
+const reservando = ref(false);
+const msgReserva = ref("");
+
+const abrirModalCrear = () => {
+  msgCrear.value = "";
+  mostrarModalCrear.value = true;
+};
+const cerrarModalCrear = () => {
+  if (creando.value) return;
+  mostrarModalCrear.value = false;
+};
 
 const crearActividad = async () => {
   msgCrear.value = "";
@@ -123,6 +160,9 @@ const crearActividad = async () => {
         nombre: nuevaNombre.value,
         foto: nuevaFoto.value,
         descripcion: nuevaDescripcion.value,
+        dia: nuevaDia.value,
+        hora: nuevaHora.value,
+        maximoPersonas: nuevaMaximo.value,
         usuario: usuario.value, 
       }),
     });
@@ -133,9 +173,13 @@ const crearActividad = async () => {
     nuevaNombre.value = "";
     nuevaFoto.value = "";
     nuevaDescripcion.value = "";
+    nuevaDia.value = "";
+    nuevaHora.value = "";
+    nuevaMaximo.value = "";
     msgCrear.value = "Actividad creada";
 
     await cargarActividades(); 
+    cerrarModalCrear();
   } catch (e) {
     msgCrear.value = `⚠️ ${e?.message || "Error"}`;
   } finally {
@@ -152,7 +196,49 @@ onMounted(() => {
   }
 
   cargarActividades(); 
+  cargarReservas();
 });
+
+const reservarActividad = async () => {
+  msgReserva.value = "";
+  const act = actividadSeleccionada.value;
+  const actId = act?._id || act?.id;
+  if (actId && reservasIds.value.has(String(actId))) {
+    msgReserva.value = "Ya estás reservado en esta actividad.";
+    return;
+  }
+  if (!usuario.value?.id && !usuario.value?._id) {
+    msgReserva.value = "Debes iniciar sesión para reservar.";
+    return;
+  }
+  if (!actId) {
+    msgReserva.value = "Actividad inválida.";
+    return;
+  }
+  reservando.value = true;
+  try {
+    const resp = await fetch(`${API}/reservas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        actividadId: actId,
+        usuario: usuario.value,
+      }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.ok) throw new Error(data.mensaje || "No se pudo reservar");
+    msgReserva.value = "Reserva confirmada";
+    reservasIds.value = new Set([...reservasIds.value, String(actId)]);
+    await cargarActividades();
+    await cargarReservas();
+    const actualizada = actividades.value.find((a) => String(a._id || a.id) === String(actId));
+    if (actualizada) actividadSeleccionada.value = actualizada;
+  } catch (e) {
+    msgReserva.value = `âš ï¸ ${e?.message || "Error"}`;
+  } finally {
+    reservando.value = false;
+  }
+};
 </script>
 
 <template>
@@ -173,8 +259,12 @@ onMounted(() => {
       <span v-if="esAdmin" class="badgeAdmin">ADMIN</span>
     </div>
 
+    <button class="btnNav" type="button" @click="irMisReservas">
+      Mis reservas
+    </button>
+
     <button class="btnSalir" type="button" @click="cerrarSesion" title="Cerrar sesión">
-      <img class="iconosalir" src="/imagenes/logout.png" alt="Salir" />
+      <img class="iconosalir" src="/imagenes/logout2sin.png" alt="Salir" />
     </button>
   </div>
 </header>
@@ -182,12 +272,6 @@ onMounted(() => {
 
     <main class="contenido">
       <section class="seccion">
-        <ActividadIndividual
-          v-if="vistaActividad === 'detalle'"
-          :id="actividadSeleccionadaId"
-          :onVolver="volverALista"
-        />
-        <template v-else>
         <div class="seccion__header">
           <div>
             <h2 class="seccion__titulo">Actividades</h2>
@@ -207,32 +291,63 @@ onMounted(() => {
         <section v-if="esAdmin" class="adminBox">
           <h3 class="adminBox__titulo">Administración: crear actividad</h3>
 
-          <div class="adminGrid">
-            <input v-model="nuevaNombre" class="adminInput" placeholder="Nombre (ej: Pilates)" />
-            <input v-model="nuevaFoto" class="adminInput" placeholder="URL de foto (opcional)" />
-            <input v-model="nuevaDescripcion" class="adminInput" placeholder="Descripción" />
-            <button class="adminBtn" :disabled="creando" @click="crearActividad">
-              {{ creando ? "Creando…" : "Crear" }}
-            </button>
-          </div>
-
-          <p v-if="msgCrear" class="adminMsg">{{ msgCrear }}</p>
+          <button class="adminBtn" type="button" @click="abrirModalCrear">
+            Crear actividad
+          </button>
         </section>
+
+        <div v-if="mostrarModalCrear" class="modalBackdrop" @click.self="cerrarModalCrear">
+          <div class="modal">
+            <div class="modalHeader">
+              <h3 class="modalTitle">Crear actividad</h3>
+              <button class="modalClose" type="button" @click="cerrarModalCrear" aria-label="Cerrar">
+                ×
+              </button>
+            </div>
+
+            <div class="adminGrid">
+              <input v-model="nuevaNombre" class="adminInput" placeholder="Nombre (ej: Pilates)" />
+              <input v-model="nuevaFoto" class="adminInput" placeholder="URL de foto (opcional)" />
+              <input v-model="nuevaDescripcion" class="adminInput" placeholder="Descripción" />
+              <input v-model="nuevaDia" class="adminInput" type="date" placeholder="Día" />
+              <input v-model="nuevaHora" class="adminInput" type="time" placeholder="Hora" />
+              <input
+                v-model="nuevaMaximo"
+                class="adminInput"
+                type="number"
+                min="1"
+                step="1"
+                placeholder="Máximo de personas"
+              />
+            </div>
+
+            <div class="modalActions">
+              <button class="adminBtn" type="button" :disabled="creando" @click="crearActividad">
+                {{ creando ? "Creando…" : "Crear" }}
+              </button>
+              <button class="adminBtn adminBtn--ghost" type="button" :disabled="creando" @click="cerrarModalCrear">
+                Cancelar
+              </button>
+            </div>
+
+            <p v-if="msgCrear" class="adminMsg">{{ msgCrear }}</p>
+          </div>
+        </div>
 
         <p v-if="cargandoAct" class="vacio">Cargando actividades…</p>
         <p v-else-if="errorAct" class="vacio">⚠️ {{ errorAct }}</p>
 
         <div v-else class="grid">
           <article
-  v-for="actividad in actividadesFiltradas"
-  :key="actividad._id || actividad.id"
-  class="tarjeta"
-@click="console.log('CLICK DOM tarjeta'); abrirActividad(actividad)"
-  @keydown.enter.prevent="abrirActividad(actividad)"
-  @keydown.space.prevent="abrirActividad(actividad)"
-  role="button"
-  tabindex="0"
->
+            v-for="actividad in actividadesFiltradas"
+            :key="actividad._id || actividad.id"
+            class="tarjeta"
+            @click="abrirActividad(actividad)"
+            @keydown.enter.prevent="abrirActividad(actividad)"
+            @keydown.space.prevent="abrirActividad(actividad)"
+            role="button"
+            tabindex="0"
+          >
 
             <div class="tarjeta__imgWrap">
               <img
@@ -243,8 +358,17 @@ onMounted(() => {
             </div>
 
             <div class="tarjeta__body">
-              <h3 class="tarjeta__titulo">{{ actividad.nombre }}</h3>
+              <div class="tarjeta__row">
+                <h3 class="tarjeta__titulo">{{ actividad.nombre }}</h3>
+                <span v-if="reservasIds.has(String(actividad._id || actividad.id))" class="chip chip--reservado">
+                  Reservado
+                </span>
+              </div>
               <p class="tarjeta__desc">{{ actividad.descripcion }}</p>
+              <div class="tarjeta__meta">
+                <span v-if="actividad.dia" class="metaItem">Día: {{ actividad.dia }}</span>
+                <span v-if="actividad.hora" class="metaItem">Hora: {{ actividad.hora }}</span>
+              </div>
 
               <div class="tarjeta__footer">
                 <span class="chip">Ver detalles</span>
@@ -256,9 +380,62 @@ onMounted(() => {
         <p v-if="!cargandoAct && !errorAct && actividadesFiltradas.length === 0" class="vacio">
           No se encontraron actividades.
         </p>
-        </template>
       </section>
     </main>
+
+        <div v-if="mostrarModalDetalle && actividadSeleccionada" class="modalBackdrop" @click.self="cerrarActividad">
+      <div class="modal modal--detalle">
+        <div class="modalHeader">
+          <h3 class="modalTitle">{{ actividadSeleccionada.nombre }}</h3>
+          <button class="modalClose" type="button" @click="cerrarActividad" aria-label="Cerrar">
+            ×
+          </button>
+        </div>
+
+        <div class="detalleGrid">
+          <img
+            class="detalleFoto"
+            :src="normalizarFoto(actividadSeleccionada.foto, 'imagenes/fondo2.jpg')"
+            :alt="actividadSeleccionada.nombre"
+          />
+          <div class="detalleBody">
+            <p class="detalleDesc">{{ actividadSeleccionada.descripcion }}</p>
+            <div class="detalleMeta">
+              <span v-if="actividadSeleccionada.dia" class="metaItem">Día: {{ actividadSeleccionada.dia }}</span>
+              <span v-if="actividadSeleccionada.hora" class="metaItem">Hora: {{ actividadSeleccionada.hora }}</span>
+              <span
+                v-if="reservasIds.has(String(actividadSeleccionada._id || actividadSeleccionada.id))"
+                class="chip chip--reservado"
+              >
+                Ya reservado
+              </span>
+              <span v-if="actividadSeleccionada.llena" class="chip chip--llena">Actividad completa</span>
+            </div>
+            <p
+              v-if="reservasIds.has(String(actividadSeleccionada._id || actividadSeleccionada.id))"
+              class="reservaAviso"
+            >
+              Ya estás reservado en esta actividad.
+            </p>
+            <p v-else-if="actividadSeleccionada.llena" class="reservaAviso">
+              No hay plazas disponibles para esta actividad.
+            </p>
+            <div class="reservaActions">
+              <button
+                v-if="!reservasIds.has(String(actividadSeleccionada._id || actividadSeleccionada.id)) && !actividadSeleccionada.llena"
+                class="adminBtn"
+                type="button"
+                :disabled="reservando"
+                @click="reservarActividad"
+              >
+                {{ reservando ? "Reservando…" : "Reservar" }}
+              </button>
+            </div>
+            <p v-if="msgReserva" class="adminMsg">{{ msgReserva }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -388,6 +565,24 @@ onMounted(() => {
   transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
 }
 
+.btnNav{
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(44,184,175,.35);
+  background: rgba(44,184,175,.12);
+  color: rgba(44,184,175,.95);
+  font-weight: 900;
+  cursor:pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.btnNav:hover{
+  transform: translateY(-1px);
+  border-color: rgba(44,184,175,.55);
+  background: rgba(44,184,175,.18);
+  box-shadow: 0 10px 22px rgba(0,0,0,.30);
+}
+
 .btnSalir:hover{
   transform: translateY(-1px);
   border-color: rgba(44,184,175,.55);
@@ -396,8 +591,8 @@ onMounted(() => {
 }
 
 .iconosalir{
-  width: 22px;
-  height: 22px;
+  width: 29px;
+  height: 29px;
   object-fit: contain;
   display:block;
   filter: drop-shadow(0 2px 6px rgba(0,0,0,.45));
@@ -500,6 +695,12 @@ onMounted(() => {
 .tarjeta__body{
   padding: 12px 12px 14px;
 }
+.tarjeta__row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 8px;
+}
 
 .tarjeta__titulo{
   margin:0;
@@ -513,6 +714,20 @@ onMounted(() => {
   color: var(--muted);
   font-size: 12.8px;
   line-height: 1.35;
+}
+.tarjeta__meta{
+  margin-top: 8px;
+  display:flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.metaItem{
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
 }
 
 .tarjeta__footer{
@@ -529,6 +744,16 @@ onMounted(() => {
   border: 1px solid rgba(44,184,175,.22);
   padding: 6px 10px;
   border-radius: 999px;
+}
+.chip--reservado{
+  color: #f4f2ee;
+  background: rgba(255,255,255,.10);
+  border-color: rgba(255,255,255,.20);
+}
+.chip--llena{
+  color: #fbe9e9;
+  background: rgba(255, 120, 120, .14);
+  border-color: rgba(255, 120, 120, .28);
 }
 
 .vacio{
@@ -552,7 +777,7 @@ onMounted(() => {
 }
 .adminGrid{
   display:grid;
-  grid-template-columns: 1.2fr 1.6fr 2fr auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 .adminInput{
@@ -572,6 +797,11 @@ onMounted(() => {
   font-weight: 900;
   cursor: pointer;
 }
+.adminBtn--ghost{
+  background: rgba(255,255,255,.04);
+  color: var(--texto);
+  border-color: rgba(255,255,255,.12);
+}
 .adminBtn:disabled{
   opacity: .6;
   cursor: not-allowed;
@@ -582,9 +812,98 @@ onMounted(() => {
   font-size: 13px;
 }
 
+.modalBackdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: 20px;
+  z-index: 50;
+}
+.modal{
+  width: min(720px, 94vw);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(20,20,20,.98), rgba(16,16,16,.98));
+  border: 1px solid rgba(44,184,175,.25);
+  box-shadow: 0 26px 60px rgba(0,0,0,.6);
+  padding: 16px;
+}
+.modal--detalle{
+  width: min(920px, 96vw);
+}
+.modalHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom: 12px;
+}
+.modalTitle{
+  margin:0;
+  font-size: 16px;
+  font-weight: 900;
+}
+.modalClose{
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  color: var(--texto);
+  font-size: 18px;
+  cursor: pointer;
+}
+.modalActions{
+  display:flex;
+  gap: 10px;
+  justify-content:flex-end;
+  margin-top: 12px;
+}
+
+.detalleGrid{
+  display:grid;
+  grid-template-columns: 1.2fr 1.8fr;
+  gap: 14px;
+}
+.detalleFoto{
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.10);
+}
+.detalleBody{
+  display:flex;
+  flex-direction: column;
+}
+.detalleDesc{
+  margin: 0 0 10px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.detalleMeta{
+  display:flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.reservaActions{
+  display:flex;
+  gap: 10px;
+  justify-content:flex-start;
+  margin-top: 4px;
+}
+.reservaAviso{
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
 @media (max-width: 980px){
   .grid{ grid-template-columns: repeat(2, 1fr); }
   .adminGrid{ grid-template-columns: 1fr; }
+  .detalleGrid{ grid-template-columns: 1fr; }
 }
 @media (max-width: 640px){
   .topbar{ flex-direction: column; align-items: stretch; }

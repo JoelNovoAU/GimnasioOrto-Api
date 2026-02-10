@@ -1,24 +1,14 @@
 import { createRouter, createWebHashHistory } from "vue-router";
 import Login from "../login.vue";
 import Principal from "../principal.vue";
-import ActividadIndividual from "../actividad_individual.vue";
+import MisReservas from "../misreservas.vue";
+import CrearCuenta from "../crearcuenta.vue";
 
 const routes = [
   { path: "/", name: "login", component: Login },
-
-  {
-    path: "/principal",
-    name: "principal",
-    component: Principal,
-    children: [
-      {
-        path: "actividad_individual/:id", // <- OJO: sin "/" al ser hija
-        name: "actividad",
-        component: ActividadIndividual,
-        props: true,
-      },
-    ],
-  },
+  { path: "/crear-cuenta", name: "crear-cuenta", component: CrearCuenta },
+  { path: "/principal", name: "principal", component: Principal },
+  { path: "/mis-reservas", name: "mis-reservas", component: MisReservas },
 ];
 
 export default createRouter({

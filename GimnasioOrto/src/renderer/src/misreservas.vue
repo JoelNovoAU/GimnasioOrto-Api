@@ -1,0 +1,300 @@
+<script setup>
+import { ref, onMounted, computed } from "vue";
+import { useRouter } from "vue-router";
+
+const API = "http://localhost:3000";
+const router = useRouter();
+
+const usuario = ref(null);
+const actividades = ref([]);
+const reservasIds = ref(new Set());
+const cargando = ref(false);
+const error = ref("");
+
+const cargarDatos = async () => {
+  error.value = "";
+  cargando.value = true;
+  try {
+    const uid = usuario.value?.id || usuario.value?._id;
+    if (!uid) throw new Error("Debes iniciar sesión");
+
+    const [respAct, respRes] = await Promise.all([
+      fetch(`${API}/actividades`),
+      fetch(`${API}/reservas?usuarioId=${encodeURIComponent(uid)}`),
+    ]);
+
+    const dataAct = await respAct.json();
+    const dataRes = await respRes.json();
+    if (!respAct.ok || !dataAct.ok) throw new Error(dataAct.mensaje || "Error cargando actividades");
+    if (!respRes.ok || !dataRes.ok) throw new Error(dataRes.mensaje || "Error cargando reservas");
+
+    actividades.value = dataAct.actividades || [];
+    reservasIds.value = new Set((dataRes.reservas || []).map((r) => String(r.actividadId)));
+  } catch (e) {
+    error.value = e?.message || "Error";
+  } finally {
+    cargando.value = false;
+  }
+};
+
+const actividadesReservadas = computed(() => {
+  const set = reservasIds.value;
+  return actividades.value.filter((a) => set.has(String(a._id || a.id)));
+});
+
+const baseUrl = import.meta.env.BASE_URL || "/";
+const toPublicUrl = (path) => {
+  const p = String(path || "").replace(/^\/+/, "");
+  if (!p) return baseUrl;
+  return baseUrl.endsWith("/") ? `${baseUrl}${p}` : `${baseUrl}/${p}`;
+};
+const normalizarFoto = (foto, fallback) => {
+  const resolvedFallback =
+    fallback && (fallback.startsWith("http") ? fallback : toPublicUrl(fallback));
+
+  if (!foto || typeof foto !== "string") return resolvedFallback;
+  const f = foto.trim();
+  if (!f) return resolvedFallback;
+  if (f.startsWith("http://") || f.startsWith("https://")) return f;
+  if (f.startsWith("/")) return toPublicUrl(f.slice(1));
+  if (f.startsWith("imagenes/")) return toPublicUrl(f);
+  return toPublicUrl(`imagenes/${f}`);
+};
+
+const volver = () => {
+  router.push("/principal");
+};
+
+onMounted(() => {
+  try {
+    const guardado = localStorage.getItem("usuario");
+    usuario.value = guardado ? JSON.parse(guardado) : null;
+  } catch {
+    usuario.value = null;
+  }
+  cargarDatos();
+});
+</script>
+
+<template>
+  <div class="principal">
+    <header class="topbar">
+      <div class="topbar__izq">
+        <h1 class="topbar__titulo">Mis reservas</h1>
+        <p class="topbar__subtitulo">Tus actividades reservadas</p>
+      </div>
+
+      <div class="topbar__der">
+        <button class="btnNav" type="button" @click="volver">Volver</button>
+      </div>
+    </header>
+
+    <main class="contenido">
+      <section class="seccion">
+        <p v-if="cargando" class="vacio">Cargando reservas…</p>
+        <p v-else-if="error" class="vacio">⚠️ {{ error }}</p>
+
+        <div v-else class="grid">
+          <article
+            v-for="actividad in actividadesReservadas"
+            :key="actividad._id || actividad.id"
+            class="tarjeta"
+          >
+            <div class="tarjeta__imgWrap">
+              <img
+                class="tarjeta__img"
+                :src="normalizarFoto(actividad.foto, 'imagenes/fondo2.jpg')"
+                :alt="actividad.nombre"
+              />
+            </div>
+
+            <div class="tarjeta__body">
+              <div class="tarjeta__row">
+                <h3 class="tarjeta__titulo">{{ actividad.nombre }}</h3>
+                <span class="chip chip--reservado">Reservado</span>
+              </div>
+              <p class="tarjeta__desc">{{ actividad.descripcion }}</p>
+              <div class="tarjeta__meta">
+                <span v-if="actividad.dia" class="metaItem">Día: {{ actividad.dia }}</span>
+                <span v-if="actividad.hora" class="metaItem">Hora: {{ actividad.hora }}</span>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <p v-if="!cargando && !error && actividadesReservadas.length === 0" class="vacio">
+          Todavía no tienes reservas.
+        </p>
+      </section>
+    </main>
+  </div>
+</template>
+
+<style scoped>
+:root{
+  --c-1:#323232;
+  --c-2:#2cb8af;
+  --c-3:#222222;
+
+  --texto:rgba(255,255,255,.92);
+  --muted:rgba(255,255,255,.68);
+  --suave:rgba(255,255,255,.10);
+  --suave2:rgba(255,255,255,.14);
+  --sombra:0 18px 60px rgba(0,0,0,.55);
+}
+*{ box-sizing:border-box; }
+
+.principal{
+  min-height:100vh;
+  color:var(--texto);
+  background:
+    radial-gradient(1200px 700px at 20% 10%, rgba(44,184,175,.12), transparent 60%),
+    radial-gradient(900px 600px at 90% 70%, rgba(44,184,175,.08), transparent 55%),
+    linear-gradient(180deg, var(--c-3), #171717 70%);
+  padding: 26px;
+}
+
+.topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding: 18px 18px;
+  border-radius: 20px;
+  background:
+    radial-gradient(700px 220px at 12% 30%, rgba(44,184,175,.22), transparent 60%),
+    radial-gradient(520px 220px at 92% 10%, rgba(44,184,175,.14), transparent 65%),
+    linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+  border: 1px solid rgba(44,184,175,.22);
+  box-shadow: 0 18px 60px rgba(0,0,0,.55);
+  position: relative;
+  overflow: hidden;
+}
+.topbar::before{
+  content:"";
+  position:absolute;
+  left:0; top:0;
+  width:100%;
+  height:3px;
+  background: linear-gradient(90deg, rgba(44,184,175,.0), rgba(44,184,175,.95), rgba(44,184,175,.0));
+  opacity:.9;
+}
+.topbar__titulo{
+  margin:0;
+  font-size: 22px;
+  letter-spacing:.2px;
+  font-weight: 950;
+}
+.topbar__subtitulo{
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.topbar__der{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.btnNav{
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(44,184,175,.35);
+  background: rgba(44,184,175,.12);
+  color: rgba(44,184,175,.95);
+  font-weight: 900;
+  cursor:pointer;
+}
+
+.contenido{ margin-top: 18px; }
+.seccion{
+  padding: 18px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+  border: 1px solid rgba(255,255,255,.08);
+}
+.grid{
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 10px;
+}
+.tarjeta{
+  overflow:hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
+}
+.tarjeta__imgWrap{
+  height: 140px;
+  background: rgba(255,255,255,.03);
+}
+.tarjeta__img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display:block;
+}
+.tarjeta__body{ padding: 12px 12px 14px; }
+.tarjeta__row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 8px;
+}
+.tarjeta__titulo{
+  margin:0;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing:.2px;
+}
+.tarjeta__desc{
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12.8px;
+  line-height: 1.35;
+}
+.tarjeta__meta{
+  margin-top: 8px;
+  display:flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.metaItem{
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
+}
+.chip{
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(44,184,175,.95);
+  background: rgba(44,184,175,.10);
+  border: 1px solid rgba(44,184,175,.22);
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+.chip--reservado{
+  color: #f4f2ee;
+  background: rgba(255,255,255,.10);
+  border-color: rgba(255,255,255,.20);
+}
+.vacio{
+  margin: 14px 2px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 980px){
+  .grid{ grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px){
+  .topbar{ flex-direction: column; align-items: stretch; }
+  .topbar__der{ display:flex; justify-content:flex-start; }
+  .grid{ grid-template-columns: 1fr; }
+}
+</style>

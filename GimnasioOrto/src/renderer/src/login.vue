@@ -1,11 +1,6 @@
 <script setup>
 import { ref, computed } from "vue";
-
-import Principal from "./principal.vue"; 
-import CrearCuenta from "./CrearCuenta.vue"; 
-
-
-const vista = ref("login"); 
+import { useRouter } from "vue-router";
 
 const email = ref("");
 const password = ref("");
@@ -24,15 +19,11 @@ const toPublicUrl = (path) => {
 };
 const loginBg = computed(() => `url(${toPublicUrl("imagenes/fondo3.webp")})`);
 
+const router = useRouter();
+
 const irACrearCuenta = () => {
   errorMsg.value = "";
-  vista.value = "crear";
-};
-
-const volverAlLogin = () => {
-  errorMsg.value = "";
-  vista.value = "login";
-  requestAnimationFrame(() => emailEl.value?.focus());
+  router.push("/crear-cuenta");
 };
 
 const onSubmit = async () => {
@@ -40,7 +31,7 @@ const onSubmit = async () => {
 
   console.group("✅ LOGIN SUBMIT");
   console.log("1) inicio");
-  console.log("   vista actual:", vista.value);
+  console.log("   vista actual: login");
   console.log("   email:", email.value);
   console.log("   password length:", (password.value || "").length);
 
@@ -102,19 +93,14 @@ const onSubmit = async () => {
       return;
     }
 
-    console.log("6) resp.ok = true -> guardando usuario y cambiando vista");
+    console.log("6) resp.ok = true -> guardando usuario y navegando");
     console.log("   data.usuario:", data?.usuario);
 
     localStorage.setItem("usuario", JSON.stringify(data?.usuario ?? data));
     console.log("   localStorage usuario:", localStorage.getItem("usuario"));
 
-    vista.value = "principal";
-    console.log("7) vista nueva:", vista.value);
-
-    requestAnimationFrame(() => {
-      console.log("8) RAF -> vista (debería ser principal):", vista.value);
-      console.groupEnd();
-    });
+    router.push("/principal");
+    console.groupEnd();
   } catch (e) {
     console.error("❌ CATCH:", e);
     if (e?.name === "AbortError") {
@@ -136,11 +122,7 @@ const onSubmit = async () => {
 </script>
 
 <template>
-  <Principal v-if="vista === 'principal'" />
-
-  <CrearCuenta v-else-if="vista === 'crear'" @volver="volverAlLogin" />
-
-  <div v-else class="autenticacion" :style="{ backgroundImage: loginBg }">
+  <div class="autenticacion" :style="{ backgroundImage: loginBg }">
     <div class="autenticacion__fondo" aria-hidden="true"></div>
     <main class="autenticacion__contenedor">
       <section class="marca" aria-label="Move & Lite">
@@ -601,3 +583,4 @@ const onSubmit = async () => {
   text-decoration: underline;
 }
 </style>
+
