@@ -99,7 +99,7 @@ const onSubmit = async () => {
     localStorage.setItem("usuario", JSON.stringify(data?.usuario ?? data));
     console.log("   localStorage usuario:", localStorage.getItem("usuario"));
 
-    router.push("/principal");
+    router.replace("/principal");
     console.groupEnd();
   } catch (e) {
     console.error("❌ CATCH:", e);

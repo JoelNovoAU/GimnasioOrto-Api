@@ -11,7 +11,26 @@ const routes = [
   { path: "/mis-reservas", name: "mis-reservas", component: MisReservas },
 ];
 
-export default createRouter({
+const router = createRouter({
   history: createWebHashHistory(),
   routes,
 });
+
+const publicRouteNames = new Set(["login", "crear-cuenta"]);
+
+router.beforeEach((to) => {
+  const rawUsuario = localStorage.getItem("usuario");
+  const isAuthed = Boolean(rawUsuario);
+
+  if (!isAuthed && !publicRouteNames.has(to.name)) {
+    return { name: "login", replace: true };
+  }
+
+  if (isAuthed && to.name === "login") {
+    return { name: "principal", replace: true };
+  }
+
+  return true;
+});
+
+export default router;

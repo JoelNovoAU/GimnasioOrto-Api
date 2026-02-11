@@ -56,7 +56,7 @@ const mostrarModalDetalle = ref(false);
 const cerrarSesion = () => {
   localStorage.removeItem("usuario");
   usuario.value = null;
-  router.push("/");
+  router.replace("/");
 };
 
 const irMisReservas = () => {
