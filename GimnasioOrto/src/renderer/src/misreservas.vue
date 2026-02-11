@@ -15,6 +15,7 @@ const confirmOpen = ref(false);
 const confirmTitle = ref("Confirmar");
 const confirmMessage = ref("");
 const confirmAction = ref(null);
+const minutosParaCancelar = 15;
 
 const cargarDatos = async () => {
   error.value = "";
@@ -76,7 +77,38 @@ const cancelarReserva = async (actividadId) => {
     alert(e?.message || "Error");
   }
 };
-const solicitarCancelarReserva = (actividadId) => {
+const getInicioActividad = (actividad) => {
+  const dia = actividad?.dia;
+  const hora = actividad?.hora;
+  if (!dia || !hora) return null;
+  const inicio = new Date(`${dia}T${hora}`);
+  if (Number.isNaN(inicio.getTime())) return null;
+  return inicio;
+};
+
+const puedeCancelarReserva = (actividad) => {
+  const inicio = getInicioActividad(actividad);
+  if (!inicio) return false;
+  const ahora = new Date();
+  const diffMin = (inicio - ahora) / 60000;
+  return diffMin > minutosParaCancelar;
+};
+
+const mensajeCancelacion = (actividad) => {
+  const inicio = getInicioActividad(actividad);
+  if (!inicio) return "No se puede cancelar: actividad sin fecha u hora válida.";
+  const ahora = new Date();
+  const diffMin = Math.round((inicio - ahora) / 60000);
+  if (diffMin < 0) return "No se puede cancelar: la actividad ya comenzó.";
+  return `No se puede cancelar con ${minutosParaCancelar} minutos o menos de anticipación.`;
+};
+
+const solicitarCancelarReserva = (actividad) => {
+  if (!puedeCancelarReserva(actividad)) {
+    alert(mensajeCancelacion(actividad));
+    return;
+  }
+  const actividadId = actividad?._id || actividad?.id;
   solicitarConfirmacion(
     "Cancelar reserva",
     "¿Seguro que quieres cancelar esta reserva?",
@@ -169,7 +201,9 @@ onMounted(() => {
                 <button
                   class="btnCancelar"
                   type="button"
-                  @click="solicitarCancelarReserva(actividad._id || actividad.id)"
+                  :disabled="!puedeCancelarReserva(actividad)"
+                  :title="!puedeCancelarReserva(actividad) ? mensajeCancelacion(actividad) : ''"
+                  @click="solicitarCancelarReserva(actividad)"
                 >
                   Cancelar reserva
                 </button>
@@ -345,6 +379,12 @@ onMounted(() => {
   cursor: pointer;
   transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
 }
+.btnCancelar:disabled{
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
 .btnCancelar:hover{
   transform: translateY(-1px);
   border-color: rgba(255, 120, 120, .45);
@@ -385,3 +425,4 @@ onMounted(() => {
   .grid{ grid-template-columns: 1fr; }
 }
 </style>
+

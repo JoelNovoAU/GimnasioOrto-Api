@@ -308,6 +308,7 @@ const reservarActividad = async () => {
     await cargarReservas();
     const actualizada = actividades.value.find((a) => String(a._id || a.id) === String(actId));
     if (actualizada) actividadSeleccionada.value = actualizada;
+    cerrarActividad();
   } catch (e) {
     msgReserva.value = `âš ï¸ ${e?.message || "Error"}`;
   } finally {
