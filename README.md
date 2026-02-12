@@ -29,24 +29,24 @@ La notificación se envía **desde el backend (Node/Express)**, nunca desde el f
 ## 1) Crear un Bot de Telegram (paso a paso)
 
 1. Abre Telegram y buscá **@BotFather**
-2. Escribí: /newbot
+2. Escribe: /newbot
 3. BotFather te va a pedir:
 - **Nombre** del bot (ej: `MoveLite Bot`)
 - **Usuario** del bot (debe terminar en `bot`, ej: `movelite_notifier_bot`)
 4. BotFather te entrega un **TOKEN** 
- Guardá ese token, lo vas a usar en el `.env` como `TELEGRAM_BOT_TOKEN`.
+ Guarda ese token, lo vas a usar en el `.env` como `TELEGRAM_BOT_TOKEN`.
 
 
 ## 2) Obtener el CHAT_ID (a dónde llega el mensaje)
 
 ### Opción A: Mensaje a un chat personal
-1. Abre tu bot y tocá **Start**
-2. Enviá cualquier mensaje al bot (ej: "hola")
+1. Abre tu bot y toca **Start**
+2. Envia cualquier mensaje al bot (ej: "hola")
 3. Abre en el navegador:
-4. En la respuesta buscá algo como:
+4. En la respuesta busca algo como:
 - `"chat":{"id": 123456789, ... }`
 
-Ese número es tu `TELEGRAM_CHAT_ID`.
+Ese numero es tu `TELEGRAM_CHAT_ID`.
 
 - **POST** `/usuarios`
 
