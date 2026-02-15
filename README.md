@@ -1,6 +1,6 @@
-# Move & Lite — API + Front (Registro/Login)
+# Move & Lite — API + Front 
 
-Proyecto con **frontend en Vue** (registro/login) y **backend en Node/Express** conectado a **MongoDB Atlas**.  
+Proyecto con **frontend en Vue**  y **backend en Node/Express** conectado a **MongoDB Atlas**.  
 Cuando un usuario se registra, el backend también envía una **notificación por Telegram**.
 
 ---
@@ -9,7 +9,7 @@ Cuando un usuario se registra, el backend también envía una **notificación po
 
 **Backend**
 - Node.js + Express
-- MongoDB Atlas (driver oficial `mongodb`)
+- MongoDB Atlas
 - bcrypt (hash de contraseñas)
 - CORS
 - dotenv
@@ -19,34 +19,34 @@ Cuando un usuario se registra, el backend también envía una **notificación po
 - Vue 3 
 - Fetch API
 
-# Integración con Telegram + API (Move & Lite)
+# Integración con Telegram + API
 
 Este proyecto envía una **notificación por Telegram** cuando se registra un usuario nuevo.  
 La notificación se envía **desde el backend (Node/Express)**, nunca desde el frontend, para no exponer el token del bot.
 
 
 
-## 1) Crear un Bot de Telegram (paso a paso)
+## 1) Crear un Bot de Telegram 
 
-1. Abrí Telegram y buscá **@BotFather**
-2. Escribí: /newbot
+1. Abre Telegram y buscá **@BotFather**
+2. Escribe: /newbot
 3. BotFather te va a pedir:
 - **Nombre** del bot (ej: `MoveLite Bot`)
 - **Usuario** del bot (debe terminar en `bot`, ej: `movelite_notifier_bot`)
 4. BotFather te entrega un **TOKEN** 
- Guardá ese token, lo vas a usar en el `.env` como `TELEGRAM_BOT_TOKEN`.
+ Guarda ese token, lo vas a usar en el `.env` como `TELEGRAM_BOT_TOKEN`.
 
 
-## 2) Obtener el CHAT_ID (a dónde llega el mensaje)
+## 2) Obtener el CHAT_ID
 
 ### Opción A: Mensaje a un chat personal
-1. Abrí tu bot y tocá **Start**
-2. Enviá cualquier mensaje al bot (ej: "hola")
-3. Abrí en el navegador:
-4. En la respuesta buscá algo como:
+1. Abre tu bot y toca **Start**
+2. Envia cualquier mensaje al bot (ej: "hola")
+3. Abre en el navegador:
+4. En la respuesta busca algo como:
 - `"chat":{"id": 123456789, ... }`
 
-Ese número es tu `TELEGRAM_CHAT_ID`.
+Ese numero es tu `TELEGRAM_CHAT_ID`.
 
 - **POST** `/usuarios`
 
