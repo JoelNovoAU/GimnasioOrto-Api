@@ -1,7 +1,6 @@
 <script setup>
 import { ref, onMounted, computed, watch } from "vue";
-
-const API = "http://localhost:3000";
+import { apiFetch } from "./auth/api";
 
 const props = defineProps({
   id: { type: [String, Number], required: true },
@@ -43,7 +42,7 @@ const cargarActividad = async () => {
   error.value = "";
   cargando.value = true;
   try {
-    const resp = await fetch(`${API}/actividades/${actividadId.value}`);
+    const resp = await apiFetch(`/actividades/${actividadId.value}`);
     const data = await resp.json();
     if (!resp.ok || !data.ok) throw new Error(data.mensaje || "No se pudo cargar");
     actividad.value = data.actividad;

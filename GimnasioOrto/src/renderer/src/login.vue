@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
+import { saveUsuario, setAccessToken } from "./auth/session";
 
 const email = ref("");
 const password = ref("");
@@ -93,11 +94,16 @@ const onSubmit = async () => {
       return;
     }
 
-    console.log("6) resp.ok = true -> guardando usuario y navegando");
+    console.log("6) resp.ok = true -> guardando usuario y token");
     console.log("   data.usuario:", data?.usuario);
 
-    localStorage.setItem("usuario", JSON.stringify(data?.usuario ?? data));
-    console.log("   localStorage usuario:", localStorage.getItem("usuario"));
+    // Compatibilidad: la API puede responder accessToken o token (alias).
+    const accessToken = data?.accessToken || data?.token;
+    if (!accessToken) {
+      throw new Error("La API no devolvio accessToken/token");
+    }
+    setAccessToken(accessToken);
+    saveUsuario(data?.usuario ?? data);
 
     router.replace("/principal");
     console.groupEnd();

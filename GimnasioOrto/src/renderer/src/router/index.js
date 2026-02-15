@@ -3,6 +3,7 @@ import Login from "../login.vue";
 import Principal from "../principal.vue";
 import MisReservas from "../misreservas.vue";
 import CrearCuenta from "../crearcuenta.vue";
+import { clearSession, hasActiveSession } from "../auth/session";
 
 const routes = [
   { path: "/", name: "login", component: Login },
@@ -19,8 +20,11 @@ const router = createRouter({
 const publicRouteNames = new Set(["login", "crear-cuenta"]);
 
 router.beforeEach((to) => {
-  const rawUsuario = localStorage.getItem("usuario");
-  const isAuthed = Boolean(rawUsuario);
+  const isAuthed = hasActiveSession();
+
+  if (!isAuthed && localStorage.getItem("usuario")) {
+    clearSession();
+  }
 
   if (!isAuthed && !publicRouteNames.has(to.name)) {
     return { name: "login", replace: true };

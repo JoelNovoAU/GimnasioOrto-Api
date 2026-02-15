@@ -2,8 +2,9 @@
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import ConfirmModal from "./components/ConfirmModal.vue";
+import { apiFetch } from "./auth/api";
+import { getUsuario } from "./auth/session";
 
-const API = "http://localhost:3000";
 const router = useRouter();
 
 const usuario = ref(null);
@@ -25,8 +26,8 @@ const cargarDatos = async () => {
     if (!uid) throw new Error("Debes iniciar sesión");
 
     const [respAct, respRes] = await Promise.all([
-      fetch(`${API}/actividades`),
-      fetch(`${API}/reservas?usuarioId=${encodeURIComponent(uid)}`),
+      apiFetch("/actividades"),
+      apiFetch(`/reservas?usuarioId=${encodeURIComponent(uid)}`),
     ]);
 
     const dataAct = await respAct.json();
@@ -62,12 +63,11 @@ const aceptarConfirmacion = async () => {
 const cancelarReserva = async (actividadId) => {
   if (!actividadId) return;
   try {
-    const resp = await fetch(`${API}/reservas`, {
+    const resp = await apiFetch("/reservas", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         actividadId,
-        usuario: usuario.value,
       }),
     });
     const data = await resp.json();
@@ -145,12 +145,7 @@ const volver = () => {
 };
 
 onMounted(() => {
-  try {
-    const guardado = localStorage.getItem("usuario");
-    usuario.value = guardado ? JSON.parse(guardado) : null;
-  } catch {
-    usuario.value = null;
-  }
+  usuario.value = getUsuario();
   cargarDatos();
 });
 </script>

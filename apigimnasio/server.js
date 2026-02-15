@@ -3,6 +3,7 @@ import express from "express";
 import { MongoClient } from "mongodb";
 import cors from "cors";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import { enviarTelegram } from "./src/utils/telegram.js";
 
 import { serve } from "inngest/express";
@@ -16,9 +17,52 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const DB_NAME = process.env.DB_NAME || "GimnasioOrto";
 const MONGO_URI = process.env.MONGO_URI;
+const BCRYPT_SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS || 10);
+const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-this";
+const ACCESS_TOKEN_TTL = process.env.ACCESS_TOKEN_TTL || "15m";
 
 const client = new MongoClient(MONGO_URI);
 let db;
+
+const toSafeUser = (user) => ({
+  id: user._id,
+  nombre: user.nombre,
+  apellido: user.apellido,
+  correo: user.correo,
+  telefono: user.telefono ?? "",
+  rol: user.rol ?? "cliente",
+});
+
+const signAccessToken = (user) =>
+  jwt.sign(
+    {
+      sub: String(user._id),
+      correo: user.correo,
+      rol: user.rol ?? "cliente",
+      nombre: user.nombre ?? "",
+    },
+    JWT_SECRET,
+    { expiresIn: ACCESS_TOKEN_TTL }
+  );
+
+const authRequired = (req, res, next) => {
+  const authHeader = req.headers.authorization || "";
+  const [scheme, token] = authHeader.split(" ");
+
+  if (scheme !== "Bearer" || !token) {
+    return res.status(401).json({ ok: false, code: "AUTH_REQUIRED", mensaje: "Falta token Bearer" });
+  }
+
+  try {
+    req.auth = jwt.verify(token, JWT_SECRET);
+    return next();
+  } catch (error) {
+    if (error?.name === "TokenExpiredError") {
+      return res.status(401).json({ ok: false, code: "TOKEN_EXPIRED", mensaje: "Token expirado" });
+    }
+    return res.status(401).json({ ok: false, code: "INVALID_TOKEN", mensaje: "Token inv\u00e1lido" });
+  }
+};
 
 try {
   await client.connect();
@@ -46,7 +90,9 @@ app.post("/usuarios", async (req, res) => {
       return res.status(400).json({ ok: false, mensaje: "La contraseña debe tener al menos 8 caracteres" });
     }
 
-    const contrasenaHash = await bcrypt.hash(contrasena, 10);
+    // Salt expl\u00edcito: bcrypt genera salt aleatorio por usuario y luego hashea la contrase\u00f1a.
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const contrasenaHash = await bcrypt.hash(contrasena, salt);
 
     const nuevoUsuario = {
       nombre: String(nombre).trim(),
@@ -107,18 +153,17 @@ app.post("/auth/login", async (req, res) => {
       return res.status(401).json({ ok: false, mensaje: "Credenciales inválidas" });
     }
 
+    const usuario = toSafeUser(user);
+    const accessToken = signAccessToken(user);
+
     return res.json({
-  ok: true,
-  mensaje: "Login correcto",
-  usuario: {
-    id: user._id,
-    nombre: user.nombre,
-    apellido: user.apellido,
-    correo: user.correo,
-    telefono: user.telefono ?? "",
-    rol: user.rol ?? "cliente", 
-  },
-});
+      ok: true,
+      mensaje: "Login correcto",
+      usuario,
+      accessToken,
+      // Alias de compatibilidad solicitado por frontend legado.
+      token: accessToken,
+    });
 
   } catch (e) {
     console.error("Error en login:", e);
@@ -126,7 +171,7 @@ app.post("/auth/login", async (req, res) => {
   }
 });
 
-app.get("/actividades", async (_req, res) => {
+app.get("/actividades", authRequired, async (_req, res) => {
   try {
     if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
 
@@ -156,13 +201,13 @@ app.get("/actividades", async (_req, res) => {
   }
 });
 
-app.post("/actividades", async (req, res) => {
+app.post("/actividades", authRequired, async (req, res) => {
   try {
     if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
 
-    const { nombre, foto, descripcion, dia, hora, maximoPersonas, usuario } = req.body;
+    const { nombre, foto, descripcion, dia, hora, maximoPersonas } = req.body;
 
-    if (!usuario || usuario.rol !== "admin") {
+    if (req.auth?.rol !== "admin") {
       return res.status(403).json({ ok: false, mensaje: "No autorizado (solo admin)" });
     }
 
@@ -200,14 +245,14 @@ app.post("/actividades", async (req, res) => {
   }
 });
 
-app.put("/actividades/:id", async (req, res) => {
+app.put("/actividades/:id", authRequired, async (req, res) => {
   try {
     if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
 
     const { id } = req.params;
-    const { nombre, foto, descripcion, dia, hora, maximoPersonas, usuario } = req.body;
+    const { nombre, foto, descripcion, dia, hora, maximoPersonas } = req.body;
 
-    if (!usuario || usuario.rol !== "admin") {
+    if (req.auth?.rol !== "admin") {
       return res.status(403).json({ ok: false, mensaje: "No autorizado (solo admin)" });
     }
 
@@ -256,14 +301,13 @@ app.put("/actividades/:id", async (req, res) => {
   }
 });
 
-app.delete("/actividades/:id", async (req, res) => {
+app.delete("/actividades/:id", authRequired, async (req, res) => {
   try {
     if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
 
     const { id } = req.params;
-    const { usuario } = req.body;
 
-    if (!usuario || usuario.rol !== "admin") {
+    if (req.auth?.rol !== "admin") {
       return res.status(403).json({ ok: false, mensaje: "No autorizado (solo admin)" });
     }
 
@@ -277,7 +321,7 @@ app.delete("/actividades/:id", async (req, res) => {
   }
 });
 
-app.get("/actividades/:id", async (req, res) => {
+app.get("/actividades/:id", authRequired, async (req, res) => {
   try {
     if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
 
@@ -305,14 +349,13 @@ app.get("/actividades/:id", async (req, res) => {
   }
 });
 
-app.get("/reservas", async (req, res) => {
+app.get("/reservas", authRequired, async (req, res) => {
   try {
     if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
 
-    const { usuarioId } = req.query;
-    const uid = String(usuarioId || "").trim();
+    const uid = String(req.auth?.sub || "").trim();
     if (!uid) {
-      return res.status(400).json({ ok: false, mensaje: "usuarioId es obligatorio" });
+      return res.status(401).json({ ok: false, mensaje: "Token sin identificador de usuario" });
     }
 
     const reservas = await db
@@ -335,12 +378,12 @@ app.get("/reservas", async (req, res) => {
   }
 });
 
-app.post("/reservas", async (req, res) => {
+app.post("/reservas", authRequired, async (req, res) => {
   try {
     if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
 
-    const { actividadId, usuario } = req.body;
-    const usuarioId = String(usuario?.id || usuario?._id || "").trim();
+    const { actividadId } = req.body;
+    const usuarioId = String(req.auth?.sub || "").trim();
     if (!usuarioId) {
       return res.status(400).json({ ok: false, mensaje: "Usuario inválido" });
     }
@@ -388,12 +431,12 @@ app.post("/reservas", async (req, res) => {
   }
 });
 
-app.delete("/reservas", async (req, res) => {
+app.delete("/reservas", authRequired, async (req, res) => {
   try {
     if (!db) return res.status(500).json({ ok: false, mensaje: "DB no disponible" });
 
-    const { actividadId, usuario } = req.body;
-    const usuarioId = String(usuario?.id || usuario?._id || "").trim();
+    const { actividadId } = req.body;
+    const usuarioId = String(req.auth?.sub || "").trim();
     if (!usuarioId) {
       return res.status(400).json({ ok: false, mensaje: "Usuario inválido" });
     }

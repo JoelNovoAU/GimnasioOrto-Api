@@ -2,12 +2,13 @@
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import ConfirmModal from "./components/ConfirmModal.vue";
+import { apiFetch } from "./auth/api";
+import { clearSession, getUsuario } from "./auth/session";
 
 
 const usuario = ref(null);
 const router = useRouter();
 
-const API = "http://localhost:3000";
 const actividades = ref([]);
 const cargandoAct = ref(false);
 const errorAct = ref("");
@@ -17,7 +18,7 @@ const cargarActividades = async () => {
   errorAct.value = "";
   cargandoAct.value = true;
   try {
-    const resp = await fetch(`${API}/actividades`);
+    const resp = await apiFetch("/actividades");
     const data = await resp.json();
     if (!resp.ok || !data.ok) throw new Error(data.mensaje || "Error cargando actividades");
     actividades.value = data.actividades || [];
@@ -35,7 +36,7 @@ const cargarReservas = async () => {
     return;
   }
   try {
-    const resp = await fetch(`${API}/reservas?usuarioId=${encodeURIComponent(uid)}`);
+    const resp = await apiFetch(`/reservas?usuarioId=${encodeURIComponent(uid)}`);
     const data = await resp.json();
     if (!resp.ok || !data.ok) throw new Error(data.mensaje || "Error cargando reservas");
     const set = new Set((data.reservas || []).map((r) => String(r.actividadId)));
@@ -54,7 +55,7 @@ const actividadesFiltradas = computed(() => {
 const actividadSeleccionada = ref(null);
 const mostrarModalDetalle = ref(false);
 const cerrarSesion = () => {
-  localStorage.removeItem("usuario");
+  clearSession();
   usuario.value = null;
   router.replace("/");
 };
@@ -186,9 +187,9 @@ const guardarActividad = async () => {
   creando.value = true;
   try {
     const esEdit = esEdicion.value && editId.value;
-    const url = esEdit ? `${API}/actividades/${editId.value}` : `${API}/actividades`;
+    const url = esEdit ? `/actividades/${editId.value}` : "/actividades";
     const method = esEdit ? "PUT" : "POST";
-    const resp = await fetch(url, {
+    const resp = await apiFetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -198,7 +199,6 @@ const guardarActividad = async () => {
         dia: nuevaDia.value,
         hora: nuevaHora.value,
         maximoPersonas: nuevaMaximo.value,
-        usuario: usuario.value, 
       }),
     });
 
@@ -242,10 +242,9 @@ const eliminarActividad = async (actividad) => {
   const id = actividad?._id || actividad?.id;
   if (!id) return;
   try {
-    const resp = await fetch(`${API}/actividades/${id}`, {
+    const resp = await apiFetch(`/actividades/${id}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ usuario: usuario.value }),
     });
     const data = await resp.json();
     if (!resp.ok || !data.ok) throw new Error(data.mensaje || "No se pudo eliminar");
@@ -263,12 +262,7 @@ const solicitarEliminarActividad = (actividad) => {
 };
 
 onMounted(() => {
-  try {
-    const guardado = localStorage.getItem("usuario");
-    usuario.value = guardado ? JSON.parse(guardado) : null;
-  } catch {
-    usuario.value = null;
-  }
+  usuario.value = getUsuario();
 
   cargarActividades(); 
   cargarReservas();
@@ -292,12 +286,11 @@ const reservarActividad = async () => {
   }
   reservando.value = true;
   try {
-    const resp = await fetch(`${API}/reservas`, {
+    const resp = await apiFetch("/reservas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         actividadId: actId,
-        usuario: usuario.value,
       }),
     });
     const data = await resp.json();
