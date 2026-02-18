@@ -55,7 +55,7 @@ Durante el login:
 2. Se compara la contraseña ingresada con el hash guardado.
 ![Codigo](ImgReadme/imagen3bcrypt.png)
 
-3.Si la contraseña es correcta se gnera el token
+3.Si la contraseña es correcta se gnera el token.
 ![Codigo](ImgReadme/imagen4bcrypt.png)
 
 La función `toSafeUser()` elimina datos sensibles como `contrasenaHash` antes de enviar el usuario al cliente.
