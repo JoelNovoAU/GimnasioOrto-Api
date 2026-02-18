@@ -1,5 +1,4 @@
-# Auth con JWT (Login / Registro) — Node.js + Express
-
+# Autentifiacion con JWT y hash con bcrypt
 Este proyecto implementa autenticación usando:
 
 - **bcrypt** para hashear contraseñas .
