@@ -16,7 +16,7 @@ Cuando un usuario se registra, el backend también envía una **notificación po
 - Telegram (notificación al registrar)
 
 **Frontend**
-- Vue 3 
+- Vue
 - Fetch API
 
 # Integración con Telegram + API
