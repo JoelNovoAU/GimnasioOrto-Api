@@ -18,8 +18,11 @@ npm install express bcrypt jsonwebtoken dotenv
 Crear un archivo `.env`
 
 ### Estuctura para coger token chat id
-![Pantalla de registro](ImgReadme/imagen1bcrypt)
-
+```env
+BCRYPT_SALT_ROUNDS=10
+JWT_SECRET=tu_secreto_super_seguro
+ACCESS_TOKEN_TTL=1d
+```
 ### Explicación
 
 - **BCRYPT_SALT_ROUNDS** → Nivel de seguridad del hash .
@@ -28,11 +31,7 @@ Crear un archivo `.env`
 
 Lectura en el código:
 
-```js
-const BCRYPT_SALT_ROUNDS = Number.parseInt(process.env.BCRYPT_SALT_ROUNDS, 10);
-const JWT_SECRET = String(process.env.JWT_SECRET || "").trim();
-const ACCESS_TOKEN_TTL = String(process.env.ACCESS_TOKEN_TTL || "").trim();
-```
+![Codigo](ImgReadme/imagen1bcrypt.png)
 
 ---
 
@@ -45,20 +44,8 @@ Durante el registro:
 3. Se guarda el usuario con `contrasenaHash`.
 
 
+![Codigo](ImgReadme/imagen5bcrypt.png)
 
-```js
-const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
-const contrasenaHash = await bcrypt.hash(contrasena, salt);
-
-const nuevoUsuario = {
-  nombre: String(nombre).trim(),
-  apellido: String(apellido).trim(),
-  correo: String(correo).trim().toLowerCase(),
-  telefono: telefono ? String(telefono).trim() : "",
-  contrasenaHash,
-  rol: "cliente",
-};
-```
 
 # Login de Usuario y Generación del Access Token
 
@@ -66,21 +53,10 @@ Durante el login:
 
 1. Se busca el usuario por correo.
 2. Se compara la contraseña ingresada con el hash guardado.
+![Codigo](ImgReadme/imagen3bcrypt.png)
 
-```js
-const ok = await bcrypt.compare(String(contrasena), user.contrasenaHash);
-
-if (!ok) {
-  return res.status(401).json({
-    ok: false,
-    mensaje: "Credenciales inválidas"
-  });
-}
-```
-
-Si la contraseña es correcta, se genera el token.
-
-
+3.Si la contraseña es correcta se gnera el token
+![Codigo](ImgReadme/imagen4bcrypt.png)
 
 La función `toSafeUser()` elimina datos sensibles como `contrasenaHash` antes de enviar el usuario al cliente.
 
