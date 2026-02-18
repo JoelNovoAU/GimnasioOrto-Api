@@ -5,7 +5,7 @@ Cuando un usuario se registra, el backend también envía una **notificación po
 
 ---
 
-## 📌 Tecnologías
+## Tecnologías
 
 **Backend**
 - Node.js + Express
