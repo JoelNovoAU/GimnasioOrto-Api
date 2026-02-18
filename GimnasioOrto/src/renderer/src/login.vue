@@ -2,6 +2,11 @@
 import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { saveUsuario, setAccessToken } from "./auth/session";
+import {
+  LoginPayloadSchema,
+  LoginResponseSchema,
+  formatZodIssues,
+} from "./auth/zod";
 
 const email = ref("");
 const password = ref("");
@@ -44,10 +49,18 @@ const onSubmit = async () => {
   const t = setTimeout(() => controller.abort(), timeoutMs);
 
   const url = "http://localhost:3000/auth/login";
-  const payload = {
+  const rawPayload = {
     correo: email.value,
     contrasena: password.value,
   };
+  const payloadResult = LoginPayloadSchema.safeParse(rawPayload);
+  if (!payloadResult.success) {
+    errorMsg.value = formatZodIssues(payloadResult.error);
+    loading.value = false;
+    requestAnimationFrame(() => emailEl.value?.focus());
+    return;
+  }
+  const payload = payloadResult.data;
 
   try {
     console.log("2) antes fetch");
@@ -93,6 +106,14 @@ const onSubmit = async () => {
       requestAnimationFrame(() => passEl.value?.focus());
       return;
     }
+
+    const responseResult = LoginResponseSchema.safeParse(data ?? {});
+    if (!responseResult.success) {
+      errorMsg.value = `Respuesta invalida de la API: ${formatZodIssues(responseResult.error)}`;
+      requestAnimationFrame(() => passEl.value?.focus());
+      return;
+    }
+    data = responseResult.data;
 
     console.log("6) resp.ok = true -> guardando usuario y token");
     console.log("   data.usuario:", data?.usuario);

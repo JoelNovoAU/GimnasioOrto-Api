@@ -17,9 +17,19 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const DB_NAME = process.env.DB_NAME || "GimnasioOrto";
 const MONGO_URI = process.env.MONGO_URI;
-const BCRYPT_SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS || 10);
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-this";
-const ACCESS_TOKEN_TTL = process.env.ACCESS_TOKEN_TTL || "15m";
+const BCRYPT_SALT_ROUNDS = Number.parseInt(process.env.BCRYPT_SALT_ROUNDS, 10);
+const JWT_SECRET = String(process.env.JWT_SECRET || "").trim();
+const ACCESS_TOKEN_TTL = String(process.env.ACCESS_TOKEN_TTL || "").trim();
+
+if (!Number.isInteger(BCRYPT_SALT_ROUNDS) || BCRYPT_SALT_ROUNDS < 8 || BCRYPT_SALT_ROUNDS > 15) {
+  throw new Error("BCRYPT_SALT_ROUNDS debe ser un entero entre 8 y 15");
+}
+if (!JWT_SECRET) {
+  throw new Error("Falta JWT_SECRET en variables de entorno");
+}
+if (!ACCESS_TOKEN_TTL) {
+  throw new Error("Falta ACCESS_TOKEN_TTL en variables de entorno");
+}
 
 const client = new MongoClient(MONGO_URI);
 let db;
@@ -90,7 +100,6 @@ app.post("/usuarios", async (req, res) => {
       return res.status(400).json({ ok: false, mensaje: "La contraseña debe tener al menos 8 caracteres" });
     }
 
-    // Salt expl\u00edcito: bcrypt genera salt aleatorio por usuario y luego hashea la contrase\u00f1a.
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
     const contrasenaHash = await bcrypt.hash(contrasena, salt);
 
@@ -161,7 +170,6 @@ app.post("/auth/login", async (req, res) => {
       mensaje: "Login correcto",
       usuario,
       accessToken,
-      // Alias de compatibilidad solicitado por frontend legado.
       token: accessToken,
     });
 

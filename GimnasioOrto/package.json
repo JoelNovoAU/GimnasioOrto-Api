@@ -20,7 +20,8 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
-    "vue-router": "^4.6.4"
+    "vue-router": "^4.6.4",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config": "^2.1.0",
