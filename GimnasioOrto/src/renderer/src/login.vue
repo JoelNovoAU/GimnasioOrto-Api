@@ -3,7 +3,7 @@ import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { saveUsuario, setAccessToken } from "./auth/session";
 import {
-  LoginPayloadSchema,
+  LoginSchema,
   formatZodIssues,
 } from "./auth/zod";
 
@@ -52,14 +52,14 @@ const onSubmit = async () => {
     correo: email.value,
     contrasena: password.value,
   };
-  const payloadResult = LoginPayloadSchema.safeParse(rawPayload);
-  if (!payloadResult.success) {
-    errorMsg.value = formatZodIssues(payloadResult.error);
+  const comprobar = LoginSchema.safeParse(rawPayload);
+  if (!comprobar.success) {
+    errorMsg.value = formatZodIssues(comprobar.error);
     loading.value = false;
     requestAnimationFrame(() => emailEl.value?.focus());
     return;
   }
-  const payload = payloadResult.data;
+  const payload = comprobar.data;
 
   try {
     console.log("2) antes fetch");

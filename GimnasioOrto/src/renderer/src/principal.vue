@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import ConfirmModal from "./components/ConfirmModal.vue";
 import { apiFetch } from "./auth/api";
 import { clearSession, getUsuario } from "./auth/session";
+import { ActividadSchema, formatZodIssues } from "./auth/zod";
 
 
 const usuario = ref(null);
@@ -21,7 +22,17 @@ const cargarActividades = async () => {
     const resp = await apiFetch("/actividades");
     const data = await resp.json();
     if (!resp.ok || !data.ok) throw new Error(data.mensaje || "Error cargando actividades");
-    actividades.value = data.actividades || [];
+    const rawActividades = Array.isArray(data.actividades) ? data.actividades : [];
+    const actividadesValidas = [];
+    for (const item of rawActividades) {
+      const parsed = ActividadSchema.safeParse(item);
+      if (!parsed.success) {
+        console.warn("Actividad invalida omitida:", formatZodIssues(parsed.error), item);
+        continue;
+      }
+      actividadesValidas.push({ ...item, ...parsed.data });
+    }
+    actividades.value = actividadesValidas;
   } catch (e) {
     errorAct.value = e?.message || "Error";
   } finally {

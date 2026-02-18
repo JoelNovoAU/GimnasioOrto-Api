@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import ConfirmModal from "./components/ConfirmModal.vue";
 import { apiFetch } from "./auth/api";
 import { getUsuario } from "./auth/session";
+import { ActividadSchema, formatZodIssues } from "./auth/zod";
 
 const router = useRouter();
 
@@ -35,7 +36,17 @@ const cargarDatos = async () => {
     if (!respAct.ok || !dataAct.ok) throw new Error(dataAct.mensaje || "Error cargando actividades");
     if (!respRes.ok || !dataRes.ok) throw new Error(dataRes.mensaje || "Error cargando reservas");
 
-    actividades.value = dataAct.actividades || [];
+    const rawActividades = Array.isArray(dataAct.actividades) ? dataAct.actividades : [];
+    const actividadesValidas = [];
+    for (const item of rawActividades) {
+      const parsed = ActividadSchema.safeParse(item);
+      if (!parsed.success) {
+        console.warn("Actividad invalida omitida:", formatZodIssues(parsed.error), item);
+        continue;
+      }
+      actividadesValidas.push({ ...item, ...parsed.data });
+    }
+    actividades.value = actividadesValidas;
     reservasIds.value = new Set((dataRes.reservas || []).map((r) => String(r.actividadId)));
   } catch (e) {
     error.value = e?.message || "Error";

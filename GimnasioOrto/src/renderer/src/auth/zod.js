@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const LoginPayloadSchema = z.object({
+export const LoginSchema = z.object({
   correo: z.string().trim().email("Ingresa un correo valido"),
   contrasena: z.string().min(8, "La contrasena debe tener al menos 8 caracteres"),
 });
