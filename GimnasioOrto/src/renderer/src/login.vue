@@ -4,7 +4,6 @@ import { useRouter } from "vue-router";
 import { saveUsuario, setAccessToken } from "./auth/session";
 import {
   LoginPayloadSchema,
-  LoginResponseSchema,
   formatZodIssues,
 } from "./auth/zod";
 
@@ -107,18 +106,9 @@ const onSubmit = async () => {
       return;
     }
 
-    const responseResult = LoginResponseSchema.safeParse(data ?? {});
-    if (!responseResult.success) {
-      errorMsg.value = `Respuesta invalida de la API: ${formatZodIssues(responseResult.error)}`;
-      requestAnimationFrame(() => passEl.value?.focus());
-      return;
-    }
-    data = responseResult.data;
-
     console.log("6) resp.ok = true -> guardando usuario y token");
     console.log("   data.usuario:", data?.usuario);
 
-    // Compatibilidad: la API puede responder accessToken o token (alias).
     const accessToken = data?.accessToken || data?.token;
     if (!accessToken) {
       throw new Error("La API no devolvio accessToken/token");
@@ -610,4 +600,3 @@ const onSubmit = async () => {
   text-decoration: underline;
 }
 </style>
-

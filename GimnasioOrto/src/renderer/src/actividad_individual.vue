@@ -1,10 +1,6 @@
 <script setup>
 import { ref, onMounted, computed, watch } from "vue";
 import { apiFetch } from "./auth/api";
-import {
-  ActividadResponseSchema,
-  formatZodIssues,
-} from "./auth/zod";
 
 const props = defineProps({
   id: { type: [String, Number], required: true },
@@ -47,13 +43,10 @@ const cargarActividad = async () => {
   cargando.value = true;
   try {
     const resp = await apiFetch(`/actividades/${actividadId.value}`);
-    const rawData = await resp.json();
-    const parsed = ActividadResponseSchema.safeParse(rawData);
-    if (!parsed.success) {
-      throw new Error(`Respuesta invalida: ${formatZodIssues(parsed.error)}`);
+    const data = await resp.json();
+    if (!data || typeof data !== "object") {
+      throw new Error("Respuesta invalida");
     }
-
-    const data = parsed.data;
     if (!resp.ok || !data.ok) throw new Error(data.mensaje || "No se pudo cargar");
     if (!data.actividad) throw new Error("La API no devolvio actividad");
     actividad.value = data.actividad;
