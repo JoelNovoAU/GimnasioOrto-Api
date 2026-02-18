@@ -1,4 +1,4 @@
-# 🔐 Auth con JWT (Login / Registro) — Node.js + Express
+# Auth con JWT (Login / Registro) — Node.js + Express
 
 Este proyecto implementa autenticación usando:
 
@@ -17,11 +17,8 @@ npm install express bcrypt jsonwebtoken dotenv
 
 Crear un archivo `.env`
 
-```env
-BCRYPT_SALT_ROUNDS=10
-JWT_SECRET=mi_secreto_super_seguro
-ACCESS_TOKEN_TTL=1d
-```
+### Estuctura para coger token chat id
+![Pantalla de registro](ImgReadme/imagen1bcrypt)
 
 ### Explicación
 
