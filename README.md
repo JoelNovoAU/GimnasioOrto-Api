@@ -87,4 +87,4 @@ El frontend solo hace un `fetch` al backend, y **el backend** es quien manda el 
 - Base de datos en la nube: uso de MongoDB Atlas para persistencia de datos sin necesidad de infraestructura local.
 
 ## Diagramas de ejemplo de casos de uso de la app
-![Pantalla de registro](ImgReadme/caso de uso)
+![Pantalla de registro](ImgReadme/caso de uso.drawio.png)
