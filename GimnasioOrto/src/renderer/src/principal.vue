@@ -331,7 +331,6 @@ const reservarActividad = async () => {
 
   <div class="topbar__der" aria-label="Usuario">
     <div class="usuario">
-      <img class="usuario__foto" :src="fotoMostrada" alt="Foto de usuario" />
       <div class="usuario__info">
         <span class="usuario__etiqueta">Usuario</span>
         <span class="usuario__nombre">{{ nombreMostrado }}</span>
