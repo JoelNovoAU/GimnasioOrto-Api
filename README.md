@@ -86,4 +86,5 @@ El frontend solo hace un `fetch` al backend, y **el backend** es quien manda el 
 - Sincronización en tiempo real: las reservas se actualizan de forma reactiva en la interfaz.
 - Base de datos en la nube: uso de MongoDB Atlas para persistencia de datos sin necesidad de infraestructura local.
 
-##Diagramas de ejemplo de casos de uso de la app
+## Diagramas de ejemplo de casos de uso de la app
+![Pantalla de registro](ImgReadme/caso de uso)
